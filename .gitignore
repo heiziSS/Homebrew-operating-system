@@ -2,8 +2,13 @@
 *.lst
 *.gas
 *.obj
+*.nas
+!asmhead.nas
+!ipl10.nas
+!naskfunc.nas
 bootpack.nas
 bootpack.map
 bootpack.bim
 bootpack.hrb
 haribote.sys
+haribote.img
