@@ -105,7 +105,7 @@ _asm_inthandler21:
         POPAD
         POP     DS
         POP     ES
-        IRTED
+        IRETD
 
 _asm_inthandler27:
         PUSH    ES
@@ -121,7 +121,7 @@ _asm_inthandler27:
         POPAD
         POP     DS
         POP     ES
-        IRTED
+        IRETD
 
 _asm_inthandler2c:
         PUSH    ES
@@ -137,4 +137,4 @@ _asm_inthandler2c:
         POPAD
         POP     DS
         POP     ES
-        IRTED
+        IRETD

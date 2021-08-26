@@ -47,7 +47,7 @@ void set_palette(int start, int end, unsigned char *rgb)
     return;
 }
 
-/* 绘制矩形：左上角点(x0, y0)，右下角点(x1, y1) */
+/* 绘制矩形：左上角点(x0, y0)，右下角点(x1, y1)，矩形颜色为 c */
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1)
 {
     int x, y;
@@ -101,7 +101,7 @@ void putfont8(char *vram, int xsize, int x, int y, char c, char *font)
     return;
 }
 
-/* 输出字符串 */
+/* 输出字符串 s, 字符串左上角点为 (x, y), 颜色为 c */
 void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s)
 {
     extern char hankaku[4096];

@@ -1,17 +1,19 @@
 
 #include "bootpack.h"
+#include <stdio.h>
 
 /*
     可编程中断控制器（programmable interrupt controller）
     监控输入管脚的8个中断信号，任意一个中断信号进来，通过唯一的输出管脚通知给CPU
     电脑里有两个PIC，主PIC与CPU直连，从PIC与主PIC 2号IRQ相连
+    PIC0:IRQ0-IRQ7   PIC1:IRQ8-IRQ15
 
     IMR 中断屏蔽寄存器 interrupt mask regisiter 8位分别对应8路IRQ信号，某一位置1则该位对应的IRQ信号被屏蔽
     ICW 初始化控制数据 initial control word 编号1-4 共四个字节
         ICW1和ICW4：与PIC主板配线方式、中断信号的电气特性相关
         ICW3：有关主从连接的设定
         ICW2：决定IRQ以哪一号中断通知CPU
-
+        OCW2：将 "0x60+IRQ号" 输出给OCW2，即可通知PIC已经发生了该IRQ号指定的中断，之后PIC才会继续监控该IRQ号的中断
 */
 void init_pic(void)
 {
@@ -35,25 +37,27 @@ void init_pic(void)
 }
 
 /* 键盘中断 IRQ1 */
+#define PORT_KEYDAT         0x0060
+FIFO8 keyfifo;
 void inthandler21(int *esp)
 {
-    BOOTINFO *binfo = (BOOTINFO *) ADR_BOOTINFO;
-    boxfill8(binfo->vram, binfo->scrnx, COL8_000000, 0, 0, 32 * 8 - 1, 15);
-    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, "INT 21 (IRQ-1) : PS/2 keyboard");
-    for (;;) {
-        io_hlt();
-    }
+    unsigned char data;
+    io_out8(PIC0_OCW2, 0x61);   // 通知PIC IRQ-01已经受理完毕
+    data = io_in8(PORT_KEYDAT);
+    fifo8_put(&keyfifo, data);
+    return;
 }
 
 /* 鼠标中断 IRQ12 */
+FIFO8 mousefifo;
 void inthandler2c(int *esp)
 {
-    BOOTINFO *binfo = (BOOTINFO *) ADR_BOOTINFO;
-    boxfill8(binfo->vram, binfo->scrnx, COL8_000000, 0, 0, 32 * 8 - 1, 15);
-    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, "INT 2C (IRQ-12) : PS/2 mouse");
-    for (;;) {
-        io_hlt();
-    }
+    unsigned char data;
+    io_out8(PIC1_OCW2, 0x64);   // 通知PIC1 IRQ-12的受理已经完成
+    io_out8(PIC0_OCW2, 0x62);   // 通知PIC0 IRQ-02的受理已经完成
+    data = io_in8(PORT_KEYDAT);
+    fifo8_put(&mousefifo, data);
+    return;
 }
 
 /*

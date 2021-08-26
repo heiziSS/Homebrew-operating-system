@@ -15,6 +15,8 @@ typedef struct {    /* 0x0ff0-0x0fff */
 void io_hlt(void);
 void io_cli(void);
 void io_sti(void);
+void io_stihlt(void);
+int io_in8(int port);
 void io_out8(int port, int data);
 int io_load_eflags(void);
 void io_store_eflags(int eflags);
@@ -23,6 +25,17 @@ void load_idtr(int limit, int addr);
 void asm_inthandler21(void);
 void asm_inthandler27(void);
 void asm_inthandler2c(void);
+
+/* fifo.c */
+typedef struct {
+    unsigned char *buf;
+    int w, r, size, free, flags;
+} FIFO8;
+
+void fifo8_init(FIFO8 *fifo, int size, unsigned char *buf);
+int fifo8_put(FIFO8 *fifo, unsigned char data);
+int fifo8_get(FIFO8 *fifo);
+int fifo8_status(FIFO8 *fifo);
 
 /* graphic.c */
 #define COL8_000000     0
@@ -97,6 +110,7 @@ void set_gatedesc(GATE_DESCRIPTOR *ad, int offset, int selector, int ar);
 #define PIC1_ICW2       0x00a1
 #define PIC1_ICW3       0x00a1
 #define PIC1_ICW4       0x00a1
+
 void init_pic(void);
 void inthandler21(int *esp);
 void inthandler27(int *esp);
