@@ -154,7 +154,7 @@ void init_mouse_cursor8(char *mouse, char bc)
     图像块大小为(pxsize, pysize)
     图像块位置（左上角像素点）为(px0, py0)
     图像块中各像素点颜色由 buf 指定
-    图像块指定为bxsize（个人认为有点多余）
+    图像块宽为bxsize（个人认为与前面pxsize冲突）
 */
 void putblock8_8(char *vram, int vxsize, int pxsize,
     int pysize, int px0, int py0, char *buf, int bxsize)
