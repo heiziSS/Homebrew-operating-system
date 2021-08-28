@@ -3,6 +3,7 @@
 
 typedef struct {
     unsigned char buf[3], phase;
+    int x, y, btn;
 } MOUSE_DEC;
 
 extern FIFO8 keyfifo, mousefifo;
@@ -14,7 +15,7 @@ void HariMain(void)
 {
     BOOTINFO *binfo = (BOOTINFO *) ADR_BOOTINFO;
     char s[40], mcursor[256], keybuf[32], mousebuf[128];
-    int mx, my, i, j;
+    int mx, my, i;
     MOUSE_DEC mdec;
     
     init_gdtidt();
@@ -55,8 +56,17 @@ void HariMain(void)
                 io_sti();
                 if (mouse_decode(&mdec, i) == 1) {
                     /* 鼠标的3个字节集齐，显示出来 */
-                    sprintf(s, "%02X %02X %02X", mdec.buf[0], mdec.buf[1], mdec.buf[2]);
-                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 32+8*8-1, 31);
+                    sprintf(s, "[lcr %4d %4d]", mdec.x, mdec.y);
+                    if ((mdec.btn & 0x1) != 0) {
+                        s[1] = 'L';
+                    }
+                    if ((mdec.btn & 0x2) != 0) {
+                        s[3] = 'R';
+                    }
+                    if ((mdec.btn & 0x4) != 0) {
+                        s[2] = 'C';
+                    }
+                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 32+15*8-1, 31);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, s);
                 }
             }
@@ -122,6 +132,18 @@ int mouse_decode(MOUSE_DEC *mdec, unsigned char dat)
     } else if (mdec->phase == 3) {  // 等待鼠标的第三字节
         mdec->buf[2] = dat;
         mdec->phase = 1;
+
+        // 解析鼠标数据
+        mdec->btn = mdec->buf[0] & 0x07;
+        mdec->x = mdec->buf[1];
+        mdec->y = mdec->buf[2];
+        if ((mdec->buf[0] & 0x10) != 0) {
+            mdec->x |= 0xffffff00;
+        }
+        if ((mdec->buf[0] & 0x20) != 0) {
+            mdec->y |= 0xffffff00;
+        }
+        mdec->y = -1 * mdec->y; // 鼠标的y方向与画面符号方向
         return 1;
     }
     return -1;
