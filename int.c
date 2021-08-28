@@ -36,30 +36,6 @@ void init_pic(void)
     return;
 }
 
-/* 键盘中断 IRQ1 */
-#define PORT_KEYDAT         0x0060
-FIFO8 keyfifo;
-void inthandler21(int *esp)
-{
-    unsigned char data;
-    io_out8(PIC0_OCW2, 0x61);   // 通知PIC IRQ-01已经受理完毕
-    data = io_in8(PORT_KEYDAT);
-    fifo8_put(&keyfifo, data);
-    return;
-}
-
-/* 鼠标中断 IRQ12 */
-FIFO8 mousefifo;
-void inthandler2c(int *esp)
-{
-    unsigned char data;
-    io_out8(PIC1_OCW2, 0x64);   // 通知PIC1 IRQ-12的受理已经完成
-    io_out8(PIC0_OCW2, 0x62);   // 通知PIC0 IRQ-02的受理已经完成
-    data = io_in8(PORT_KEYDAT);
-    fifo8_put(&mousefifo, data);
-    return;
-}
-
 /*
     来自PIC0的不完全中断对策
     在Athlon64X2机等中，由于芯片组方便，在PIC初始化时，该中断只发生一次
