@@ -2,7 +2,6 @@
 #include <stdio.h>
 
 unsigned int memtest(unsigned int start, unsigned int end);
-unsigned int memtest_sub(unsigned int start, unsigned int end);
 
 void HariMain(void)
 {
@@ -127,31 +126,5 @@ unsigned int memtest(unsigned int start, unsigned int end)
         store_cr0(cr0);
     }
 
-    return i;
-}
-
-/*
-    内存读写测试
-    返回start~end内存地址中以start为起始点的有效结束地址
-*/
-unsigned int memtest_sub(unsigned int start, unsigned int end)
-{
-    unsigned int i, *p, old, pat0 = 0xaa55aa55, pat1 = 0x55aa55aa;
-    for (i = start; i <= end; i += 0x1000) {
-        p = (unsigned int *) (i + 0xffc);   // 为提高检查效率，每次只检查0x1000字节中的末尾4个字节
-        old = *p;           // 保存修改前的值
-        *p = pat0;          // 试写
-        *p ^= 0xffffffff;   // 反转
-        if (*p != pat1) {   // 检查反转结果
-not_memory:
-            *p = old;
-            break;
-        }
-        *p ^= 0xffffffff;   // 再次反转
-        if (*p != pat0) {
-            goto not_memory;
-        }
-        *p = old;           // 恢复为修改前的值
-    }
     return i;
 }
