@@ -63,6 +63,35 @@ void sheet_setbuf(SHEET *sht, unsigned char *buf, int xsize, int ysize, int col_
     return;
 }
 
+/*
+    刷新所有图层中的指定区域
+    (vx0, vy0):指定区域的左上角点
+    (vx1, vy1):指定区域的右下角点
+*/
+void sheet_refreshsub(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1)
+{
+    int h, bx, by, vx, vy;
+    unsigned char *buf, c, *vram = ctl->vram;
+    SHEET *sht;
+    for (h = 0; h <= ctl->top; h++) {
+        sht = ctl->DisplayedSheets[h];
+        buf = sht->buf;
+        for (by = 0; by < sht->bysize; by++) {
+            vy = sht->vy0 + by;
+            for (bx = 0; bx < sht->bxsize; bx++) {
+                vx = sht->vx0 + bx;
+                if ((vx0 <= vx && vx < vx1) && (vy0 <= vy && vy < vy1)) {
+                    c = buf[by * sht->bxsize + bx];
+                    if (c != sht->col_inv) {
+                        vram[vy * ctl->xsize + vx] = c;
+                    }
+                }
+            }
+        }
+    }
+    return;
+}
+
 /* 
     设置图层高度 
     ctl:    图层管理器
@@ -83,64 +112,57 @@ void sheet_updown(SHTCTL *ctl, SHEET *sht, int height)
     }
     sht->height = height; // 设定高度
 
-    // PSheets[]重新排列
+    // DisplayedSheets[]重新排列
     if (preHeight > height) { // 图层高度需降低
         if (height >= 0) { // 中间图层上移一层
             for (h = preHeight; h > height; h--) {
-                ctl->PSheets[h] = ctl->PSheets[h - 1];
-                ctl->PSheets[h]->height = h;
+                ctl->DisplayedSheets[h] = ctl->DisplayedSheets[h - 1];
+                ctl->DisplayedSheets[h]->height = h;
             }
-            ctl->PSheets[height] = sht;
+            ctl->DisplayedSheets[height] = sht;
         } else { // 该图层需隐藏
             // 该图层以上的图层需要下降一层
             for (h = preHeight; h < ctl->top; h++) {
-                ctl->PSheets[h] = ctl->PSheets[h+1];
-                ctl->PSheets[h] = h;
+                ctl->DisplayedSheets[h] = ctl->DisplayedSheets[h+1];
+                ctl->DisplayedSheets[h] = h;
             }
             ctl->top--; //显示中的图层减少了一个，图层高度减一
         }
-        sheet_refresh(ctl); // 按新图层的信息重新绘制画面
+        // 按新图层的信息重新绘制画面
+        sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize);
     } else if (preHeight < height) { // 图层高度需上升
         if (preHeight >= 0) {
             //中间图层需下移一层
             for (h = preHeight; h < height; h++) {
-                ctl->PSheets[h] = ctl->PSheets[h + 1];
-                ctl->PSheets[h]->height = h;
+                ctl->DisplayedSheets[h] = ctl->DisplayedSheets[h + 1];
+                ctl->DisplayedSheets[h]->height = h;
             }
-            ctl->PSheets[height] = sht;
+            ctl->DisplayedSheets[height] = sht;
         } else { // 由隐藏转为显示状态
             // 将height以上的图层上移一层
             for (h = ctl->top; h >= height; h--) {
-                ctl->PSheets[h + 1] = ctl->PSheets[h];
-                ctl->PSheets[h + 1] = h + 1;
+                ctl->DisplayedSheets[h + 1] = ctl->DisplayedSheets[h];
+                ctl->DisplayedSheets[h + 1] = h + 1;
             }
-            ctl->PSheets[height] = sht;
+            ctl->DisplayedSheets[height] = sht;
             ctl->top++; //显示图层增加了一层，图层高度加一
         }
-        sheet_refresh(ctl); // 按新图层的信息重新绘制画面
+        // 按新图层的信息重新绘制画面
+        sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize);
     }
     return;
 }
 
-/* 刷新图层 */
-void sheet_refresh(SHTCTL *ctl)
+/*
+    刷新某个图层的指定区域
+    sht:需要刷新的图层
+    (bx0, by0):图层中需要刷新的区域在该图层缓冲中的左上角
+    (bx1, by1):图层中需要刷新的区域在该图层缓冲中的右下角
+*/
+void sheet_refresh(SHTCTL *ctl, SHEET *sht, int bx0, int by0, int bx1, int by1)
 {
-    int h, bx, by, vx, vy;
-    unsigned char *buf, c, *vram = ctl->vram;
-    SHEET *sht;
-    for (h = 0; h <= ctl->top; h++) {
-        sht = ctl->PSheets[h];
-        buf = sht->buf;
-        for (by = 0; by < sht->bysize; by++) {
-            vy = sht->vy0 + by;
-            for (bx = 0; bx < sht->bxsize; bx++) {
-                vx = sht->vx0 + bx;
-                c = buf[by * sht->bxsize + bx];
-                if (c != sht->col_inv) {
-                    vram[vy * ctl->xsize + vx] = c;
-                }
-            }
-        }
+    if (sht->height >= 0) {
+        sheet_refreshsub(ctl, sht->vx0 + bx0, sht->vy0 + by0, sht->vx0 + bx1, sht->vy0 + by1);
     }
     return;
 }
@@ -154,11 +176,13 @@ void sheet_refresh(SHTCTL *ctl)
 */
 void sheet_slide(SHTCTL *ctl, SHEET *sht, int vx0, int vy0)
 {
+    int old_vx0 = sht->vx0, old_vy0 = sht->vy0;
     sht->vx0 = vx0;
     sht->vy0 = vy0;
     // 该图层如果正在显示，则需刷新画面
     if (sht->height >= 0) {
-        sheet_refresh(ctl);
+        sheet_refreshsub(ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize);
+        sheet_refreshsub(ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize);
     }
     return;
 }
