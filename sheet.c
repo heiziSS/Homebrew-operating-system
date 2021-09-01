@@ -78,7 +78,7 @@ void sheet_refreshsub(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1)
     if (vx0 < 0)    vx0 = 0;
     if (vy0 < 0)    vy0 = 0;
     if (vx1 > ctl->xsize)   vx1 = ctl->xsize;
-    if (vy0 > ctl->ysize)   vy1 = ctl->ysize;
+    if (vy1 > ctl->ysize)   vy1 = ctl->ysize;
 
     for (h = 0; h <= ctl->top; h++) {
         sht = ctl->DisplayedSheets[h];
