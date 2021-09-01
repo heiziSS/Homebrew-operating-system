@@ -158,3 +158,36 @@ void memman_init(MEMMAN *man);
 unsigned int memman_total(MEMMAN *man);
 unsigned int memman_alloc(MEMMAN *man, unsigned int size);
 int memman_free(MEMMAN *man, unsigned int addr, unsigned int size);
+unsigned int memman_alloc_4k(MEMMAN *man, unsigned int size);
+int memman_free_4k(MEMMAN *man, unsigned int addr, unsigned int size);
+
+/* sheet.c */
+#define MAX_SHEETS          256
+
+typedef struct {
+    unsigned char *buf;     // 记录图层上所描画内容
+    int bxsize;             // 图层的整体大小
+    int bysize;             // 图层的整体大小
+    int vx0;                // 图层在画面上位置的左上角坐标，v是VRAM的略语
+    int vy0;                // 图层在画面上位置的左上角坐标
+    int col_inv;            // 透明色号
+    int height;             // 图层高度
+    int flags;              // 存放有关图层的各种设定信息
+} SHEET;
+
+typedef struct {
+    unsigned char *vram;         // VRAM的地址
+    int xsize;                   // 整个显示画面的大小
+    int ysize;                   // 整个显示画面的大小
+    int top;                     // 最上面图层的高度
+    SHEET *PSheets[MAX_SHEETS];  // 存放所有图层的地址
+    SHEET sheets[MAX_SHEETS];    // 存放所有图层的信息
+} SHTCTL;
+
+SHTCTL *shtctl_init(MEMMAN *memman, unsigned char *vram, int xsize, int ysize);
+SHEET *sheet_alloc(SHTCTL *ctl);
+void sheet_setbuf(SHEET *sht, unsigned char *buf, int xsize, int ysize, int col_inv);
+void sheet_updown(SHTCTL *ctl, SHEET *sht, int height);
+void sheet_refresh(SHTCTL *ctl);
+void sheet_slide(SHTCTL *ctl, SHEET *sht, int vx0, int vy0);
+void sheet_free(SHTCTL *ctl, SHEET *sht);
