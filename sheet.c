@@ -140,7 +140,7 @@ void sheet_updown(SHEET *sht, int height)
             // 该图层以上的图层需要下降一层
             for (h = preHeight; h < ctl->top; h++) {
                 ctl->DisplayedSheets[h] = ctl->DisplayedSheets[h+1];
-                ctl->DisplayedSheets[h] = h;
+                ctl->DisplayedSheets[h]->height = h;
             }
             ctl->top--; //显示中的图层减少了一个，图层高度减一
         }
@@ -158,7 +158,7 @@ void sheet_updown(SHEET *sht, int height)
             // 将height以上的图层上移一层
             for (h = ctl->top; h >= height; h--) {
                 ctl->DisplayedSheets[h + 1] = ctl->DisplayedSheets[h];
-                ctl->DisplayedSheets[h + 1] = h + 1;
+                ctl->DisplayedSheets[h + 1]->height = h + 1;
             }
             ctl->DisplayedSheets[height] = sht;
             ctl->top++; //显示图层增加了一层，图层高度加一
