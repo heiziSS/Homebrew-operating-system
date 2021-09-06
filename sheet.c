@@ -24,6 +24,7 @@ SHTCTL *shtctl_init(MEMMAN *memman, unsigned char *vram, int xsize, int ysize)
     ctl->top = -1;  // 一个SHEET都没有
     for(i = 0; i < MAX_SHEETS; i++) {
         ctl->sheets[i].flags = SHEET_NOT_USE;  // 标记为未使用
+        ctl->sheets[i].ctl = ctl;
     }
     return ctl;
 }
@@ -112,8 +113,9 @@ void sheet_refreshsub(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1)
     sht:    需要重新设定高度的图层
     height: 图层被设定的新高度
 */
-void sheet_updown(SHTCTL *ctl, SHEET *sht, int height)
+void sheet_updown(SHEET *sht, int height)
 {
+    SHTCTL *ctl = sht->ctl;
     int h;
     int preHeight = sht->height;    // 保存修改前的高度
 
@@ -173,10 +175,10 @@ void sheet_updown(SHTCTL *ctl, SHEET *sht, int height)
     (bx0, by0):图层中需要刷新的区域在该图层缓冲中的左上角
     (bx1, by1):图层中需要刷新的区域在该图层缓冲中的右下角
 */
-void sheet_refresh(SHTCTL *ctl, SHEET *sht, int bx0, int by0, int bx1, int by1)
+void sheet_refresh(SHEET *sht, int bx0, int by0, int bx1, int by1)
 {
     if (sht->height >= 0) {
-        sheet_refreshsub(ctl, sht->vx0 + bx0, sht->vy0 + by0, sht->vx0 + bx1, sht->vy0 + by1);
+        sheet_refreshsub(sht->ctl, sht->vx0 + bx0, sht->vy0 + by0, sht->vx0 + bx1, sht->vy0 + by1);
     }
     return;
 }
@@ -188,15 +190,15 @@ void sheet_refresh(SHTCTL *ctl, SHEET *sht, int bx0, int by0, int bx1, int by1)
     vx0: 图层移动后在图像上的新坐标
     vy0: 图层移动后在图像上的新坐标
 */
-void sheet_slide(SHTCTL *ctl, SHEET *sht, int vx0, int vy0)
+void sheet_slide(SHEET *sht, int vx0, int vy0)
 {
     int old_vx0 = sht->vx0, old_vy0 = sht->vy0;
     sht->vx0 = vx0;
     sht->vy0 = vy0;
     // 该图层如果正在显示，则需刷新画面
     if (sht->height >= 0) {
-        sheet_refreshsub(ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize);
-        sheet_refreshsub(ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize);
+        sheet_refreshsub(sht->ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize);
+        sheet_refreshsub(sht->ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize);
     }
     return;
 }
@@ -206,10 +208,10 @@ void sheet_slide(SHTCTL *ctl, SHEET *sht, int vx0, int vy0)
     ctl: 图层管理器
     sht: 需要被释放的图层
 */
-void sheet_free(SHTCTL *ctl, SHEET *sht)
+void sheet_free(SHEET *sht)
 {
     if (sht->height >= 0) {
-        sheet_updown(ctl, sht, -1); 
+        sheet_updown(sht, -1);
     }
     sht->flags = SHEET_NOT_USE;
 }

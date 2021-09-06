@@ -173,9 +173,10 @@ typedef struct {
     int col_inv;            // 透明色号
     int height;             // 图层高度
     int flags;              // 存放有关图层的各种设定信息
+    struct stSHTCTL* ctl;
 } SHEET;
 
-typedef struct {
+typedef struct stSHTCTL {
     unsigned char *vram;         // VRAM的地址
     int xsize;                   // 整个显示画面的大小
     int ysize;                   // 整个显示画面的大小
@@ -187,7 +188,7 @@ typedef struct {
 SHTCTL *shtctl_init(MEMMAN *memman, unsigned char *vram, int xsize, int ysize);
 SHEET *sheet_alloc(SHTCTL *ctl);
 void sheet_setbuf(SHEET *sht, unsigned char *buf, int xsize, int ysize, int col_inv);
-void sheet_updown(SHTCTL *ctl, SHEET *sht, int height);
-void sheet_refresh(SHTCTL *ctl, SHEET *sht, int bx0, int by0, int bx1, int by1);
-void sheet_slide(SHTCTL *ctl, SHEET *sht, int vx0, int vy0);
-void sheet_free(SHTCTL *ctl, SHEET *sht);
+void sheet_updown(SHEET *sht, int height);
+void sheet_refresh(SHEET *sht, int bx0, int by0, int bx1, int by1);
+void sheet_slide(SHEET *sht, int vx0, int vy0);
+void sheet_free(SHEET *sht);
