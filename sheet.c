@@ -15,13 +15,13 @@ SHTCTL *shtctl_init(MEMMAN *memman, unsigned char *vram, int xsize, int ysize)
     SHTCTL *ctl;
     int i;
     ctl = (SHTCTL *) memman_alloc_4k(memman, sizeof(SHTCTL));
-    if (ctl == 0) {
-        return 0;   // 返回无效地址
+    if (ctl == NULL) {
+        return NULL;   // 返回无效地址
     }
     ctl->map = (unsigned char *) memman_alloc_4k(memman, xsize * ysize);
-    if (ctl->map == 0) {
+    if (ctl->map == NULL) {
         memman_free_4k(memman, (unsigned int) ctl, sizeof(SHTCTL));
-        return 0;
+        return NULL;
     }
     ctl->vram = vram;
     ctl->xsize = xsize;
@@ -49,7 +49,7 @@ SHEET *sheet_alloc(SHTCTL *ctl)
             return sht;
         }
     }
-    return 0;   // 所有的SHEET都处于正在使用状态
+    return NULL;   // 所有的SHEET都处于正在使用状态
 }
 
 /* 

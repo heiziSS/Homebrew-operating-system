@@ -197,3 +197,4 @@ void sheet_free(SHEET *sht);
 /* public */
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
+#define NULL        0

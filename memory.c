@@ -78,7 +78,7 @@ unsigned int memman_alloc(MEMMAN *man, unsigned int size)
             return a;
         }
     }
-    return 0;   // 无可分配空间
+    return NULL;   // 无可分配空间
 }
 
 /* 释放内存 */
