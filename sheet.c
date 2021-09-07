@@ -116,8 +116,8 @@ void sheet_refreshmap(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0)
 */
 void sheet_refreshsub(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0, int h1)
 {
-    int h, bx, by, vx, vy, bx0, by0, bx1, by1;
-    unsigned char *buf, *vram = ctl->vram, *map = ctl->map, sheetId;
+    int h, bx, by, vx, vy;
+    unsigned char *vram = ctl->vram, *map = ctl->map;
     SHEET *sht;
 
     // 如果refresh的范围超出了画面则修正
@@ -126,22 +126,13 @@ void sheet_refreshsub(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0, i
     vx1 = MIN(vx1, ctl->xsize);
     vy1 = MIN(vy1, ctl->ysize);
 
-    for (h = h0; h <= h1; h++) {
-        sht = ctl->DisplayedSheets[h];
-        buf = sht->buf;
-        sheetId = sht - ctl->sheets;
-        //仅刷新[(vx0, vy0), (vx1, vy1)]与图层重叠的部分
-        bx0 = MAX(vx0 - sht->vx0, 0);
-        by0 = MAX(vy0 - sht->vy0, 0);
-        bx1 = MIN(vx1 - sht->vx0, sht->bxsize);
-        by1 = MIN(vy1 - sht->vy0, sht->bysize);
-        for (by = by0; by < by1; by++) {
-            vy = sht->vy0 + by;
-            for (bx = bx0; bx < bx1; bx++) {
-                vx = sht->vx0 + bx;
-                if (map[vy * ctl->xsize + vx] == sheetId) {
-                    vram[vy * ctl->xsize + vx] = buf[by * sht->bxsize + bx];
-                }
+    for (vy = vy0; vy < vy1; vy++) {
+        for (vx = vx0; vx < vx1; vx++) {
+            sht = ctl->sheets + map[vy * ctl->xsize + vx];
+            if (h0 <= sht->height && sht->height <= h1) {
+                by = vy - sht->vy0;
+                bx = vx - sht->vx0;
+                vram[vy * ctl->xsize + vx] = sht->buf[by * sht->bxsize + bx];
             }
         }
     }
