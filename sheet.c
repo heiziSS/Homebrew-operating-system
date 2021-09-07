@@ -16,7 +16,12 @@ SHTCTL *shtctl_init(MEMMAN *memman, unsigned char *vram, int xsize, int ysize)
     int i;
     ctl = (SHTCTL *) memman_alloc_4k(memman, sizeof(SHTCTL));
     if (ctl == 0) {
-        return ctl;
+        return 0;   // 返回无效地址
+    }
+    ctl->map = (unsigned char *) memman_alloc_4k(memman, xsize * ysize);
+    if (ctl->map == 0) {
+        memman_free_4k(memman, (unsigned int) ctl, sizeof(SHTCTL));
+        return 0;
     }
     ctl->vram = vram;
     ctl->xsize = xsize;
@@ -65,42 +70,77 @@ void sheet_setbuf(SHEET *sht, unsigned char *buf, int xsize, int ysize, int col_
 }
 
 /*
-    刷新所有图层中的指定区域
+    刷新图层地图
     (vx0, vy0):指定区域的左上角点
     (vx1, vy1):指定区域的右下角点
-    h0:当前图层的高度，仅刷新该图层即以上的区域
+    h0:刷新 h0 到 最高层的图层
 */
-void sheet_refreshsub(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0)
+void sheet_refreshmap(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0)
 {
     int h, bx, by, vx, vy, bx0, by0, bx1, by1;
-    unsigned char *buf, c, *vram = ctl->vram;
+    unsigned char *buf, sheetId, *map = ctl->map;
     SHEET *sht;
 
     // 如果refresh的范围超出了画面则修正
-    if (vx0 < 0)    vx0 = 0;
-    if (vy0 < 0)    vy0 = 0;
-    if (vx1 > ctl->xsize)   vx1 = ctl->xsize;
-    if (vy1 > ctl->ysize)   vy1 = ctl->ysize;
+    vx0 = MAX(vx0, 0);
+    vy0 = MAX(vy0, 0);
+    vx1 = MIN(vx1, ctl->xsize);
+    vy1 = MIN(vy1, ctl->ysize);
 
     for (h = h0; h <= ctl->top; h++) {
         sht = ctl->DisplayedSheets[h];
+        sheetId = sht - ctl->sheets;    // 将该图层地址与第一个图层的地址的差值作为该图层的ID号
         buf = sht->buf;
-        //仅刷新[(vx0, vy0), (vx1, vy1)]与图层重叠的部分
-        bx0 = vx0 - sht->vx0;
-        by0 = vy0 - sht->vy0;
-        bx1 = vx1 - sht->vx0;
-        by1 = vy1 - sht->vy0;
-        if (bx0 < 0)    bx0 = 0;
-        if (by0 < 0)    by0 = 0;
-        if (bx1 > sht->bxsize)  bx1 = sht->bxsize;
-        if (by1 > sht->bysize)  by1 = sht->bysize;
+        bx0 = MAX(vx0 - sht->vx0, 0);
+        by0 = MAX(vy0 - sht->vy0, 0);
+        bx1 = MIN(vx1 - sht->vx0, sht->bxsize);
+        by1 = MIN(vy1 - sht->vy0, sht->bysize);
         for (by = by0; by < by1; by++) {
             vy = sht->vy0 + by;
             for (bx = bx0; bx < bx1; bx++) {
                 vx = sht->vx0 + bx;
-                c = buf[by * sht->bxsize + bx];
-                if (c != sht->col_inv) {
-                    vram[vy * ctl->xsize + vx] = c;
+                if (buf[by * sht->bxsize + bx] != sht->col_inv) {
+                    map[vy * ctl->xsize + vx] = sheetId;
+                }
+            }
+        }
+    }
+    return;
+}
+
+/*
+    刷新所有图层中的指定区域
+    (vx0, vy0):指定区域的左上角点
+    (vx1, vy1):指定区域的右下角点
+    h0, h1:刷新 h0 到 h1 的图层
+*/
+void sheet_refreshsub(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0, int h1)
+{
+    int h, bx, by, vx, vy, bx0, by0, bx1, by1;
+    unsigned char *buf, *vram = ctl->vram, *map = ctl->map, sheetId;
+    SHEET *sht;
+
+    // 如果refresh的范围超出了画面则修正
+    vx0 = MAX(vx0, 0);
+    vy0 = MAX(vy0, 0);
+    vx1 = MIN(vx1, ctl->xsize);
+    vy1 = MIN(vy1, ctl->ysize);
+
+    for (h = h0; h <= h1; h++) {
+        sht = ctl->DisplayedSheets[h];
+        buf = sht->buf;
+        sheetId = sht - ctl->sheets;
+        //仅刷新[(vx0, vy0), (vx1, vy1)]与图层重叠的部分
+        bx0 = MAX(vx0 - sht->vx0, 0);
+        by0 = MAX(vy0 - sht->vy0, 0);
+        bx1 = MIN(vx1 - sht->vx0, sht->bxsize);
+        by1 = MIN(vy1 - sht->vy0, sht->bysize);
+        for (by = by0; by < by1; by++) {
+            vy = sht->vy0 + by;
+            for (bx = bx0; bx < bx1; bx++) {
+                vx = sht->vx0 + bx;
+                if (map[vy * ctl->xsize + vx] == sheetId) {
+                    vram[vy * ctl->xsize + vx] = buf[by * sht->bxsize + bx];
                 }
             }
         }
@@ -138,7 +178,8 @@ void sheet_updown(SHEET *sht, int height)
             }
             ctl->DisplayedSheets[height] = sht;
             // 按新图层的信息重新绘制画面
-            sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height + 1);
+            sheet_refreshmap(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height + 1);
+            sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height + 1, preHeight);
         } else { // 该图层需隐藏
             // 该图层以上的图层需要下降一层
             for (h = preHeight; h < ctl->top; h++) {
@@ -147,7 +188,8 @@ void sheet_updown(SHEET *sht, int height)
             }
             ctl->top--; //显示中的图层减少了一个，图层高度减一
             // 按新图层的信息重新绘制画面
-            sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, 0);
+            sheet_refreshmap(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, 0);
+            sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, 0, preHeight - 1);
         }
     } else if (preHeight < height) { // 图层高度需上升
         if (preHeight >= 0) {
@@ -167,7 +209,8 @@ void sheet_updown(SHEET *sht, int height)
             ctl->top++; //显示图层增加了一层，图层高度加一
         }
         // 按新图层的信息重新绘制画面
-        sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height);
+        sheet_refreshmap(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height);
+        sheet_refreshsub(ctl, sht->vx0, sht->vy0, sht->vx0 + sht->bxsize, sht->vy0 + sht->bysize, height, height);
     }
     return;
 }
@@ -181,7 +224,8 @@ void sheet_updown(SHEET *sht, int height)
 void sheet_refresh(SHEET *sht, int bx0, int by0, int bx1, int by1)
 {
     if (sht->height >= 0) {
-        sheet_refreshsub(sht->ctl, sht->vx0 + bx0, sht->vy0 + by0, sht->vx0 + bx1, sht->vy0 + by1, sht->height);
+        sheet_refreshsub(sht->ctl, sht->vx0 + bx0, sht->vy0 + by0, sht->vx0 + bx1, sht->vy0 + by1, 
+                        sht->height, sht->height);
     }
     return;
 }
@@ -200,8 +244,10 @@ void sheet_slide(SHEET *sht, int vx0, int vy0)
     sht->vy0 = vy0;
     // 该图层如果正在显示，则需刷新画面
     if (sht->height >= 0) {
-        sheet_refreshsub(sht->ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize, 0);
-        sheet_refreshsub(sht->ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize, sht->height);
+        sheet_refreshmap(sht->ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize, 0);
+        sheet_refreshmap(sht->ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize, sht->height);
+        sheet_refreshsub(sht->ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize, 0, sht->height - 1);
+        sheet_refreshsub(sht->ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize, sht->height, sht->height);
     }
     return;
 }

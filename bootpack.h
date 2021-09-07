@@ -178,6 +178,7 @@ typedef struct {
 
 typedef struct stSHTCTL {
     unsigned char *vram;         // VRAM的地址
+    unsigned char *map;          // 标记图像上每个像素点所属层
     int xsize;                   // 整个显示画面的大小
     int ysize;                   // 整个显示画面的大小
     int top;                     // 最上面图层的高度
@@ -192,3 +193,7 @@ void sheet_updown(SHEET *sht, int height);
 void sheet_refresh(SHEET *sht, int bx0, int by0, int bx1, int by1);
 void sheet_slide(SHEET *sht, int vx0, int vy0);
 void sheet_free(SHEET *sht);
+
+/* public */
+#define MAX(a, b)   (((a) > (b)) ? (a) : (b))
+#define MIN(a, b)   (((a) < (b)) ? (a) : (b))
