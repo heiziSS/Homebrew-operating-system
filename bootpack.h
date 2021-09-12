@@ -24,6 +24,7 @@ void load_gdtr(int limit, int addr);
 void load_idtr(int limit, int addr);
 int load_cr0(void);
 void store_cr0(int cr0);
+void asm_inthandler20(void);
 void asm_inthandler21(void);
 void asm_inthandler27(void);
 void asm_inthandler2c(void);
@@ -69,12 +70,12 @@ void putblock8_8(char *vram, int vxsize, int pxsize,
     int pysize, int px0, int py0, char *buf, int bxsize);
 
 /* dsctbl.c */
-#define ADR_IDT         0x0026f800
-#define LIMIT_IDT       0x000007ff
-#define ADR_GDT         0x00270000
-#define LIMIT_GDT       0x0000ffff
-#define ADT_BOTPAK      0x00280000
-#define LIMIT_BOTPAK    0x0007ffff
+#define ADR_IDT         0x0026f800      // 存放IDT的起始地址
+#define LIMIT_IDT       0x000007ff      // 存放IDT的空间大小
+#define ADR_GDT         0x00270000      // 存放GDT的起始地址
+#define LIMIT_GDT       0x0000ffff      // 存放GDT的空间大小
+#define ADT_BOTPAK      0x00280000      // 存放bootpack.hrb的起始地址
+#define LIMIT_BOTPAK    0x0007ffff      // 存放bootpack.hrb的空间大小512Kb
 #define AR_DATA32_RW    0x4092
 #define AR_CODE32_ER    0x409a
 #define AR_INTGATE32    0x008e
@@ -198,3 +199,7 @@ void sheet_free(SHEET *sht);
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 #define NULL        0
+
+/* timer.c */
+void init_pit(void);
+void inthandler20(int *esp);

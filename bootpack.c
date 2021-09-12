@@ -20,8 +20,9 @@ void HariMain(void)
     io_sti(); //由于 IDT/PIC 初始化完成，因此取消了 CPU 中断禁令
     fifo8_init(&keyfifo, 32, keybuf);
     fifo8_init(&mousefifo, 128, mousebuf);
-    io_out8(PIC0_IMR, 0xf9);    // 允许 PIC1 和键盘（11111001）
-    io_out8(PIC1_IMR, 0xef);    // 允许鼠标（11101111）
+    init_pic();
+    io_out8(PIC0_IMR, 0xf8);    // 允许PIT(IRQ0), PIC1(IRQ2) 和键盘(IRQ1)（11111000）
+    io_out8(PIC1_IMR, 0xef);    // 允许鼠标(IRQ12)（11101111）
 
     init_keyboard();
     enable_mouse(&mdec);
@@ -49,8 +50,8 @@ void HariMain(void)
     sheet_slide(sht_mouse, mx, my);
     sheet_slide(sht_win, 80, 72);
     sheet_updown(sht_back, 0);
-    sheet_updown(sht_win, 1);
-    sheet_updown(sht_mouse, 2);
+    sheet_updown(sht_win, 2);
+    sheet_updown(sht_mouse, 1);
     sprintf(s, "(%3d, %3d)", mx, my);
     putfonts8_asc(buf_back, binfo->scrnx, 0, 0, COL8_FFFFFF, s);
     sprintf(s, "memory %dMB  free: %dKB", memtotal / (1024 * 1024), memman_total(memman) / 1024);

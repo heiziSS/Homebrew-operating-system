@@ -39,6 +39,7 @@ void init_gdtidt(void)
     load_idtr(LIMIT_IDT, ADR_IDT);
 
     // 设定IDT
+    set_gatedesc(idt + 0x20, (int) asm_inthandler20, 2 * 8, AR_INTGATE32);
     set_gatedesc(idt + 0x21, (int) asm_inthandler21, 2 * 8, AR_INTGATE32);
     set_gatedesc(idt + 0x27, (int) asm_inthandler27, 2 * 8, AR_INTGATE32);
     set_gatedesc(idt + 0x2c, (int) asm_inthandler2c, 2 * 8, AR_INTGATE32);
@@ -52,12 +53,16 @@ void init_gdtidt(void)
                      Gbit为 1 时，表示页page（每页4KB）可以指定4GB的段，
                      Gbit为 0 时，表示字节byte，可以指定1MB的段
         base (32位): 段的起始地址；base_low(2), base_mid(1), base_high(1), 总共4字节32位地址，此处分三段便于兼容80286和386
-        ar   (12位): 段的管理权限（禁止写入、禁止执行、系统专用等）；
-                     00000000（0x00）:未使用的记录表
-                     10010010（0x92）:系统专用，可读写的段，不可执行
-                     10011010（0x9a）:系统专用，可执行的段，可读不可写
-                     11110010（0xf2）:应用程序用，可读写的段，不可执行
-                     11111010（0xfa）:应用程序用，可执行的段，可读不可写
+        ar   (12位): 
+                    bit15:指定Gbit
+                    bit14:指定段模式，1是32位模式，0是16位模式
+                    bit11-bit0:指定段的管理权限
+                        段的管理权限（禁止写入、禁止执行、系统专用等）；
+                            00000000（0x00）:未使用的记录表
+                            10010010（0x92）:系统专用，可读写的段，不可执行
+                            10011010（0x9a）:系统专用，可执行的段，可读不可写
+                            11110010（0xf2）:应用程序用，可读写的段，不可执行
+                            11111010（0xfa）:应用程序用，可执行的段，可读不可写
                      注：CPU处于系统模式或者应用模式，取决于执行中的应用程序位于0x9a的段或0xfa的段
         CPU用8个字节的数据表示这些信息
 */
