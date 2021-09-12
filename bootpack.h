@@ -74,7 +74,7 @@ void putblock8_8(char *vram, int vxsize, int pxsize,
 #define LIMIT_IDT       0x000007ff      // 存放IDT的空间大小
 #define ADR_GDT         0x00270000      // 存放GDT的起始地址
 #define LIMIT_GDT       0x0000ffff      // 存放GDT的空间大小
-#define ADT_BOTPAK      0x00280000      // 存放bootpack.hrb的起始地址
+#define ADR_BOTPAK      0x00280000      // 存放bootpack.hrb的起始地址
 #define LIMIT_BOTPAK    0x0007ffff      // 存放bootpack.hrb的空间大小512Kb
 #define AR_DATA32_RW    0x4092
 #define AR_CODE32_ER    0x409a
@@ -201,5 +201,9 @@ void sheet_free(SHEET *sht);
 #define NULL        0
 
 /* timer.c */
+typedef struct {
+    unsigned int count;
+} TIMERCTL;
+extern TIMERCTL timerctl;
 void init_pit(void);
 void inthandler20(int *esp);

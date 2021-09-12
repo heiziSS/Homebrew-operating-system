@@ -34,8 +34,10 @@ int mouse_decode(MOUSE_DEC *mdec, unsigned char dat)
         if (dat == 0xfa)  mdec->phase = 1;
         return 0;
     } else if (mdec->phase == 1) {  //等待鼠标的第一字节
-        mdec->buf[0] = dat;
-        mdec->phase = 2;
+		if ((dat & 0xc8) == 0x08) {  // 这是正确的第一个字节
+	        mdec->buf[0] = dat;
+	        mdec->phase = 2;
+		}
         return 0;
     } else if (mdec->phase == 2) {  // 等待鼠标的第二字节
         mdec->buf[1] = dat;

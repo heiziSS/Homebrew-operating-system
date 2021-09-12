@@ -56,7 +56,7 @@ haribote.img: ipl10.bin haribote.sys Makefile
 
 # 一般规则
 
-%.gas : %.c Makefile
+%.gas : %.c bootpack.h Makefile
 	$(CC1) -o $*.gas $*.c
 
 %.nas : %.gas Makefile
@@ -68,7 +68,7 @@ haribote.img: ipl10.bin haribote.sys Makefile
 #命令
 
 img:
-	$(MAKE) -r haribote.img
+	$(MAKE) haribote.img
 
 run:
 	$(MAKE) img

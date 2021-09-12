@@ -29,7 +29,7 @@ void init_gdtidt(void)
     // 设定段号为2的段
     // 上限值为0x0007ffff，即5125B，为bootpack.hrb准备
     // 地址是0x00280000, 属性值为0x409a
-    set_segmdesc(gdt + 2, LIMIT_BOTPAK, ADT_BOTPAK, AR_CODE32_ER);
+	set_segmdesc(gdt + 2, LIMIT_BOTPAK, ADR_BOTPAK, AR_CODE32_ER);
     load_gdtr(LIMIT_GDT, ADR_GDT); // 给GDTR赋值
 
     // IDT初始化
@@ -78,6 +78,7 @@ void set_segmdesc(SEGMENT_DESCRIPTOR *sd, unsigned int limit, int base, int ar)
     sd->access_right = ar & 0xff;
     sd->limit_high   = ((limit >> 16) & 0x0f) | ((ar >> 8) & 0xf0);
     sd->base_high    = (base >> 24) & 0xff;
+	return;
 }
 
 void set_gatedesc(GATE_DESCRIPTOR *gd, int offset, int selector, int ar)

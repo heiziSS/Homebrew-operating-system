@@ -25,6 +25,7 @@ void wait_KBC_sendready(void)
             return;
         }
     }
+	return;
 }
 
 /* 初始化键盘控制电路 */

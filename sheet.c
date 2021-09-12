@@ -230,15 +230,16 @@ void sheet_refresh(SHEET *sht, int bx0, int by0, int bx1, int by1)
 */
 void sheet_slide(SHEET *sht, int vx0, int vy0)
 {
+	struct SHTCTL *ctl = sht->ctl;
     int old_vx0 = sht->vx0, old_vy0 = sht->vy0;
     sht->vx0 = vx0;
     sht->vy0 = vy0;
     // 该图层如果正在显示，则需刷新画面
     if (sht->height >= 0) {
-        sheet_refreshmap(sht->ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize, 0);
-        sheet_refreshmap(sht->ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize, sht->height);
-        sheet_refreshsub(sht->ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize, 0, sht->height - 1);
-        sheet_refreshsub(sht->ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize, sht->height, sht->height);
+		sheet_refreshmap(ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize, 0);
+		sheet_refreshmap(ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize, sht->height);
+		sheet_refreshsub(ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize, 0, sht->height - 1);
+		sheet_refreshsub(ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize, sht->height, sht->height);
     }
     return;
 }
@@ -254,4 +255,5 @@ void sheet_free(SHEET *sht)
         sheet_updown(sht, -1);
     }
     sht->flags = SHEET_NOT_USE;
+	return;
 }

@@ -8,7 +8,7 @@ void HariMain(void)
     BOOTINFO *binfo = (BOOTINFO *) ADR_BOOTINFO;
     char s[40], keybuf[32], mousebuf[128];
     int mx, my, i;
-    unsigned int memtotal, count = 0;
+    unsigned int memtotal;
     MOUSE_DEC mdec;
     MEMMAN *memman = (MEMMAN *) MEMMAN_ADDR;
     SHTCTL *shtctl;
@@ -20,7 +20,7 @@ void HariMain(void)
     io_sti(); //由于 IDT/PIC 初始化完成，因此取消了 CPU 中断禁令
     fifo8_init(&keyfifo, 32, keybuf);
     fifo8_init(&mousefifo, 128, mousebuf);
-    init_pic();
+    init_pit();
     io_out8(PIC0_IMR, 0xf8);    // 允许PIT(IRQ0), PIC1(IRQ2) 和键盘(IRQ1)（11111000）
     io_out8(PIC1_IMR, 0xef);    // 允许鼠标(IRQ12)（11101111）
 
@@ -44,14 +44,14 @@ void HariMain(void)
     init_screen8(buf_back, binfo->scrnx, binfo->scrny);
     init_mouse_cursor8(buf_mouse, 99);
     make_window8(buf_win, 160, 52, "counter");
-    sheet_slide(sht_mouse, 0, 0);
+    sheet_slide(sht_back, 0, 0);
     mx = (binfo->scrnx - 16) >> 1;   // 坐标计算，使其位于屏幕中心
     my = (binfo->scrny - 28 - 16) >> 1;
     sheet_slide(sht_mouse, mx, my);
     sheet_slide(sht_win, 80, 72);
     sheet_updown(sht_back, 0);
-    sheet_updown(sht_win, 2);
-    sheet_updown(sht_mouse, 1);
+    sheet_updown(sht_win, 1);
+    sheet_updown(sht_mouse, 2);
     sprintf(s, "(%3d, %3d)", mx, my);
     putfonts8_asc(buf_back, binfo->scrnx, 0, 0, COL8_FFFFFF, s);
     sprintf(s, "memory %dMB  free: %dKB", memtotal / (1024 * 1024), memman_total(memman) / 1024);
@@ -59,15 +59,14 @@ void HariMain(void)
     sheet_refresh(sht_back, 0, 0, binfo->scrnx, 48);
 
     for (;;) {
-        count++;
-        sprintf(s, "%010d", count);
+        sprintf(s, "%010d", timerctl.count);
         boxfill8(buf_win, 160, COL8_C6C6C6, 40, 28, 119, 43);
         putfonts8_asc(buf_win, 160, 40, 28, COL8_000000, s);
         sheet_refresh(sht_win, 40, 28, 120, 44);
 
         io_cli();
         if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo) == 0) {
-            io_stihlt();
+			io_sti();
         } else {
             if (fifo8_status(&keyfifo) != 0) {
                 i = fifo8_get(&keyfifo);
