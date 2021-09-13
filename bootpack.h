@@ -12,17 +12,17 @@ typedef struct {    /* 0x0ff0-0x0fff */
 } BOOTINFO;
 
 /* naskfunc.nas */
-void io_hlt(void);
-void io_cli(void);
-void io_sti(void);
+void io_hlt(void);                      // CPU暂停指令
+void io_cli(void);                      // CLI(Clear Interrupt) 中断标志置0指令 使 IF=0 禁止中断发生
+void io_sti(void);                      // STI(Set Interrupt) 中断标志置1指令 使 IF=1 允许中断发生
 void io_stihlt(void);
 int io_in8(int port);
 void io_out8(int port, int data);
-int io_load_eflags(void);
+int io_load_eflags(void);               // 寄存器EFLAGS由16位寄存器FLAGS扩展而来的32位寄存器，存储进位标志和中断标志等标志
 void io_store_eflags(int eflags);
-void load_gdtr(int limit, int addr);
+void load_gdtr(int limit, int addr);    // 将指定的段上限（limit）和地址值赋值给名为GDTR的48位寄存器
 void load_idtr(int limit, int addr);
-int load_cr0(void);
+int load_cr0(void);                     // 为了禁止缓存，需要对CR0寄存器的某一标志位进行操作
 void store_cr0(int cr0);
 void asm_inthandler20(void);
 void asm_inthandler21(void);
@@ -203,7 +203,11 @@ void sheet_free(SHEET *sht);
 /* timer.c */
 typedef struct {
     unsigned int count;
+    unsigned int timeout;
+    FIFO8 *fifo;
+    unsigned char data;
 } TIMERCTL;
 extern TIMERCTL timerctl;
 void init_pit(void);
 void inthandler20(int *esp);
+void settimer(unsigned int timeout, FIFO8 *fifo, unsigned char data);

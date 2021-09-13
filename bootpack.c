@@ -6,7 +6,8 @@ void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
 void HariMain(void)
 {
     BOOTINFO *binfo = (BOOTINFO *) ADR_BOOTINFO;
-    char s[40], keybuf[32], mousebuf[128];
+    FIFO8 timerfifo;
+    char s[40], keybuf[32], mousebuf[128], timerbuf[8];
     int mx, my, i;
     unsigned int memtotal;
     MOUSE_DEC mdec;
@@ -23,6 +24,9 @@ void HariMain(void)
     init_pit();
     io_out8(PIC0_IMR, 0xf8);    // 允许PIT(IRQ0), PIC1(IRQ2) 和键盘(IRQ1)（11111000）
     io_out8(PIC1_IMR, 0xef);    // 允许鼠标(IRQ12)（11101111）
+
+    fifo8_init(&timerfifo, 8, timerbuf);
+    settimer(1000, &timerfifo, 1);
 
     init_keyboard();
     enable_mouse(&mdec);
@@ -65,7 +69,7 @@ void HariMain(void)
         sheet_refresh(sht_win, 40, 28, 120, 44);
 
         io_cli();
-        if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo) == 0) {
+        if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo) + fifo8_status(&timerfifo) == 0) {
 			io_sti();
         } else {
             if (fifo8_status(&keyfifo) != 0) {
@@ -75,7 +79,7 @@ void HariMain(void)
                 boxfill8(buf_back, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
                 putfonts8_asc(buf_back, binfo->scrnx, 0, 16, COL8_FFFFFF, s);
                 sheet_refresh(sht_back, 0, 16, 16, 32);
-            } else {
+            } else if (fifo8_status(&mousefifo) != 0) {
                 i = fifo8_get(&mousefifo);
                 io_sti();
                 if (mouse_decode(&mdec, i) == 1) {
@@ -114,6 +118,11 @@ void HariMain(void)
                     sheet_refresh(sht_back, 0, 0, 0+10*8, 16);
                     sheet_slide(sht_mouse, mx, my);
                 }
+            } else {
+                i = fifo8_get(&timerfifo);
+                io_sti();
+                putfonts8_asc(buf_back, binfo->scrnx, 0, 64, COL8_FFFFFF, "10[sec]");
+                sheet_refresh(sht_back, 0, 64, 56, 80);
             }
         }
     }
