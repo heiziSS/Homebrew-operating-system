@@ -201,13 +201,24 @@ void sheet_free(SHEET *sht);
 #define NULL        0
 
 /* timer.c */
+#define MAX_TIMER       500
+
+typedef struct {
+    unsigned int timeout;   // 定时时间
+    unsigned int flags;     // 记录定时器的状态
+    FIFO8 *fifo;
+    unsigned char data;     // 定时时间到达后向fifo发送的数据
+} TIMER;
+
 typedef struct {
     unsigned int count;
-    unsigned int timeout;
-    FIFO8 *fifo;
-    unsigned char data;
+    TIMER timer[MAX_TIMER];
 } TIMERCTL;
+
 extern TIMERCTL timerctl;
 void init_pit(void);
+TIMER *timer_alloc(void);
+void timer_free(TIMER *timer);
+void timer_init(TIMER *timer, FIFO8 *fifo, unsigned char data);
+void timer_settime(TIMER *timer, unsigned int timeout);
 void inthandler20(int *esp);
-void settimer(unsigned int timeout, FIFO8 *fifo, unsigned char data);

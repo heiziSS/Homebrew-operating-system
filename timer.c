@@ -1,9 +1,13 @@
 #include "bootpack.h"
 
-TIMERCTL timerctl;
-
 #define PIT_CTRL    0x0043
 #define PIT_CNT0    0x0040
+
+TIMERCTL timerctl;
+
+#define TIMER_FLAGS_NOTUSE      0   // 未使用
+#define TIMER_FLAGS_ALLOC       1   // 已配置状态
+#define TIMER_FLAGS_USING       2   // 定时器运行中
 
 /*
     管理定时器
@@ -16,36 +20,66 @@ TIMERCTL timerctl;
 */
 void init_pit(void)
 {
+    int i;
     io_out8(PIT_CTRL, 0x34);
     io_out8(PIT_CNT0, 0x9c);    // 中断周期的低8位
     io_out8(PIT_CNT0, 0x2e);    // 中断周期的高8位
     timerctl.count = 0;
-    timerctl.timeout = 0;
+    for (i = 0; i < MAX_TIMER; i++) {
+        timerctl.timer[i].flags = TIMER_FLAGS_NOTUSE;
+    }
+    return;
+}
+
+/* 分配定时器 */
+TIMER *timer_alloc(void)
+{
+    int i;
+    for (i = 0; i < MAX_TIMER; i++) {
+        if (timerctl.timer[i].flags == TIMER_FLAGS_NOTUSE) {
+            timerctl.timer[i].flags = TIMER_FLAGS_ALLOC;
+            return &timerctl.timer[i];
+        }
+    }
+    return NULL;
+}
+
+/* 释放定时器 */
+void timer_free(TIMER *timer)
+{
+    timer->flags = TIMER_FLAGS_NOTUSE;
+    return;
+}
+
+/* 定时器初始化 */
+void timer_init(TIMER *timer, FIFO8 *fifo, unsigned char data)
+{
+    timer->fifo = fifo;
+    timer->data = data;
+    return;
+}
+
+/* 设置定时器时间 */
+void timer_settime(TIMER *timer, unsigned int timeout)
+{
+    timer->timeout = timeout;
+    timer->flags = TIMER_FLAGS_USING;
     return;
 }
 
 void inthandler20(int *esp)
 {
+    int i;
     io_out8(PIC0_OCW2, 0x60);   // 把IRQ-0信号接收完了的信息通知给PIC
     timerctl.count++;
-    if (timerctl.timeout > 0) {
-        timerctl.timeout--;
-        if (timerctl.timeout == 0) {
-            fifo8_put(timerctl.fifo, timerctl.data);
+    for (i = 0; i < MAX_TIMER; i++) {
+        if (timerctl.timer[i].flags == TIMER_FLAGS_USING) {
+            timerctl.timer[i].timeout--;
+            if (timerctl.timer[i].timeout == 0) {
+                timerctl.timer[i].flags = TIMER_FLAGS_ALLOC;
+                fifo8_put(timerctl.timer[i].fifo, timerctl.timer[i].data);
+            }
         }
     }
-    return;
-}
-
-/* 设置计时器 */
-void settimer(unsigned int timeout, FIFO8 *fifo, unsigned char data)
-{
-    int eflags;
-    eflags = io_load_eflags();
-    io_cli();   // 如果设定还没有完全结束IRQ0的中断就进来的话，会引起混乱，所以我们先禁止中断
-    timerctl.timeout = timeout;
-    timerctl.fifo = fifo;
-    timerctl.data = data;
-    io_store_eflags(eflags);    // 把中断状态复原
     return;
 }
