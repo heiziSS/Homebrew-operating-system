@@ -199,6 +199,7 @@ void sheet_free(SHEET *sht);
 #define MAX(a, b)   (((a) > (b)) ? (a) : (b))
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 #define NULL        0
+#define UINT_MAX    0xffffffff
 
 /* timer.c */
 #define MAX_TIMER       500
@@ -211,7 +212,8 @@ typedef struct {
 } TIMER;
 
 typedef struct {
-    unsigned int count;
+    unsigned int count;     // 计数器
+    unsigned int next;      // 下一个即将到时的定时器
     TIMER timer[MAX_TIMER];
 } TIMERCTL;
 
