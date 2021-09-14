@@ -62,7 +62,7 @@ void timer_init(TIMER *timer, FIFO8 *fifo, unsigned char data)
 /* 设置定时器时间 */
 void timer_settime(TIMER *timer, unsigned int timeout)
 {
-    timer->timeout = timeout;
+    timer->timeout = timeout + timerctl.count;
     timer->flags = TIMER_FLAGS_USING;
     return;
 }
@@ -73,12 +73,10 @@ void inthandler20(int *esp)
     io_out8(PIC0_OCW2, 0x60);   // 把IRQ-0信号接收完了的信息通知给PIC
     timerctl.count++;
     for (i = 0; i < MAX_TIMER; i++) {
-        if (timerctl.timer[i].flags == TIMER_FLAGS_USING) {
-            timerctl.timer[i].timeout--;
-            if (timerctl.timer[i].timeout == 0) {
+        if (timerctl.timer[i].flags == TIMER_FLAGS_USING
+            && timerctl.count >= timerctl.timer[i].timeout) {
                 timerctl.timer[i].flags = TIMER_FLAGS_ALLOC;
                 fifo8_put(timerctl.timer[i].fifo, timerctl.timer[i].data);
-            }
         }
     }
     return;
