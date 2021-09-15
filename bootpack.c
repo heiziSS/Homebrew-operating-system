@@ -127,9 +127,9 @@ void HariMain(void)
                         my = binfo->scrny - 1;
                     }
                     sprintf(s, "(%3d, %3d)", mx, my);
-                    boxfill8(buf_back, binfo->scrnx, COL8_008484, 0, 0, 0+10*8-1, 15);
+                    boxfill8(buf_back, binfo->scrnx, COL8_008484, 0, 0, 79, 15);
                     putfonts8_asc(buf_back, binfo->scrnx, 0, 0, COL8_FFFFFF, s); // 刷新坐标
-                    sheet_refresh(sht_back, 0, 0, 0+10*8, 16);
+                    sheet_refresh(sht_back, 0, 0, 80, 16);
                     sheet_slide(sht_mouse, mx, my);
                 }
             } else if (fifo8_status(&timerfifo) != 0) {

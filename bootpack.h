@@ -214,7 +214,9 @@ typedef struct {
 typedef struct {
     unsigned int count;     // 计数器
     unsigned int next;      // 下一个即将到时的定时器
-    TIMER timer[MAX_TIMER];
+    unsigned int runningTimersNum;      // 处于运行状态中的定时器数量
+    TIMER *runningTimers[MAX_TIMER];    // 运行中的定时器指针按定时长短排列
+    TIMER timers[MAX_TIMER];
 } TIMERCTL;
 
 extern TIMERCTL timerctl;

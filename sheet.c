@@ -116,7 +116,7 @@ void sheet_refreshmap(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0)
 */
 void sheet_refreshsub(SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0, int h1)
 {
-    int h, bx, by, vx, vy;
+    int bx, by, vx, vy;
     unsigned char *vram = ctl->vram, *map = ctl->map;
     SHEET *sht;
 
@@ -230,7 +230,7 @@ void sheet_refresh(SHEET *sht, int bx0, int by0, int bx1, int by1)
 */
 void sheet_slide(SHEET *sht, int vx0, int vy0)
 {
-	struct SHTCTL *ctl = sht->ctl;
+	SHTCTL *ctl = sht->ctl;
     int old_vx0 = sht->vx0, old_vy0 = sht->vy0;
     sht->vx0 = vx0;
     sht->vy0 = vy0;
