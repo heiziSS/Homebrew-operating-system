@@ -1,15 +1,16 @@
 #include "bootpack.h"
 
-FIFO8 mousefifo;
+FIFO *mousefifo;
+int mousedata0;
 
 /* 鼠标中断 IRQ12 */
 void inthandler2c(int *esp)
 {
-    unsigned char data;
+	int data;
     io_out8(PIC1_OCW2, 0x64);   // 通知PIC1 IRQ-12的受理已经完成
     io_out8(PIC0_OCW2, 0x62);   // 通知PIC0 IRQ-02的受理已经完成
     data = io_in8(PORT_KEYDAT);
-    fifo8_put(&mousefifo, data);
+    fifo_put(mousefifo, data + mousedata0);
     return;
 }
 
@@ -17,12 +18,17 @@ void inthandler2c(int *esp)
 #define MOUSECMD_ENABLE         0xf4
 
 /* 激活鼠标 */
-void enable_mouse(MOUSE_DEC *mdec)
+void enable_mouse(FIFO *fifo, int data0, MOUSE_DEC *mdec)
 {
+    // 将FIFO缓冲区的信息保存到全局变量里
+    mousefifo = fifo;
+    mousedata0 = data0;
+
     wait_KBC_sendready();
     io_out8(PORT_KEYCMD, KEYCMD_SENDTO_MOUSE);
     wait_KBC_sendready();
     io_out8(PORT_KEYDAT, MOUSECMD_ENABLE);
+    //顺利的话，ACK(0xfa)会被发送
     mdec->phase = 0;
     return; // 顺利的话，键盘控制其会返送回ACK(0xfa)
 }

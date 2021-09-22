@@ -54,7 +54,7 @@ void timer_free(TIMER *timer)
 }
 
 /* 定时器初始化 */
-void timer_init(TIMER *timer, FIFO8 *fifo, unsigned char data)
+void timer_init(TIMER *timer, FIFO *fifo, int data)
 {
     timer->fifo = fifo;
     timer->data = data;
@@ -110,7 +110,7 @@ void inthandler20(int *esp)
         }
         // 超时
         timerctl.runningTimers[i]->flags = TIMER_FLAGS_ALLOC;
-        fifo8_put(timerctl.runningTimers[i]->fifo, timerctl.runningTimers[i]->data);
+        fifo_put(timerctl.runningTimers[i]->fifo, timerctl.runningTimers[i]->data);
     }
     // 第i个之后的定时器全部前移
     timerctl.runningTimersNum -= i;

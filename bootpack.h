@@ -32,14 +32,14 @@ unsigned int memtest_sub(unsigned int start, unsigned int end);
 
 /* fifo.c */
 typedef struct {
-    unsigned char *buf;
+    int *buf;
     int w, r, size, free, flags;
-} FIFO8;
+} FIFO;
 
-void fifo8_init(FIFO8 *fifo, int size, unsigned char *buf);
-int fifo8_put(FIFO8 *fifo, unsigned char data);
-int fifo8_get(FIFO8 *fifo);
-int fifo8_status(FIFO8 *fifo);
+void fifo_init(FIFO *fifo, int size, int *buf);
+int fifo_put(FIFO *fifo, int data);
+int fifo_get(FIFO *fifo);
+int fifo_status(FIFO *fifo);
 
 /* graphic.c */
 #define COL8_000000     0       // 黑
@@ -116,19 +116,15 @@ void set_gatedesc(GATE_DESCRIPTOR *ad, int offset, int selector, int ar);
 #define PIC1_ICW4       0x00a1
 
 void init_pic(void);
-void inthandler21(int *esp);
 void inthandler27(int *esp);
-void inthandler2c(int *esp);
 
 /* keyboard.c */
 #define PORT_KEYDAT     0x0060
 #define PORT_KEYCMD     0x0064
 
-extern FIFO8 keyfifo;
-
 void inthandler21(int *esp);
 void wait_KBC_sendready(void);
-void init_keyboard(void);
+void init_keyboard(FIFO *fifo, int data0);
 
 /* mouse.c */
 typedef struct {
@@ -136,10 +132,8 @@ typedef struct {
     int x, y, btn;
 } MOUSE_DEC;
 
-extern FIFO8 mousefifo;
-
 void inthandler2c(int *esp);
-void enable_mouse(MOUSE_DEC *mdec);
+void enable_mouse(FIFO *fifo, int data0, MOUSE_DEC *mdec);
 int mouse_decode(MOUSE_DEC *mdec, unsigned char dat);
 
 /* memory.c */
@@ -207,8 +201,8 @@ void sheet_free(SHEET *sht);
 typedef struct {
     unsigned int timeout;   // 定时时间
     unsigned int flags;     // 记录定时器的状态
-    FIFO8 *fifo;
-    unsigned char data;     // 定时时间到达后向fifo发送的数据
+    FIFO *fifo;
+    int data;               // 定时时间到达后向fifo发送的数据
 } TIMER;
 
 typedef struct {
@@ -223,6 +217,6 @@ extern TIMERCTL timerctl;
 void init_pit(void);
 TIMER *timer_alloc(void);
 void timer_free(TIMER *timer);
-void timer_init(TIMER *timer, FIFO8 *fifo, unsigned char data);
+void timer_init(TIMER *timer, FIFO *fifo, int data);
 void timer_settime(TIMER *timer, unsigned int timeout);
 void inthandler20(int *esp);

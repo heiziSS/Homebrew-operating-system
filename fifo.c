@@ -1,9 +1,19 @@
+/*
+    写入FIFO的数值
+    0~1:光标闪烁用定时器
+    3：3秒定时器
+    10：10秒定时器
+    256~512：键盘输入（从键盘控制器读入的值再加上256）
+    512~767：鼠标输入（从键盘控制器读入的值再加上512）
+*/
+
+
 #include "bootpack.h"
 
 #define FLAGS_OVERRUN       0x0001
 
 /* 初始化FIFO缓冲区 */
-void fifo8_init(FIFO8 *fifo, int size, unsigned char *buf)
+void fifo_init(FIFO *fifo, int size, int *buf)
 {
     fifo->size = size;
     fifo->buf = buf;
@@ -15,7 +25,7 @@ void fifo8_init(FIFO8 *fifo, int size, unsigned char *buf)
 }
 
 /* 向FIFO发送数据并保存 */
-int fifo8_put(FIFO8 *fifo, unsigned char data)
+int fifo_put(FIFO *fifo, int data)
 {
     if (fifo->free == 0) { // 已没有空余，溢出
         fifo->flags |= FLAGS_OVERRUN;
@@ -31,7 +41,7 @@ int fifo8_put(FIFO8 *fifo, unsigned char data)
 }
 
 /* 从FIFO取得一个数据 */
-int fifo8_get(FIFO8 *fifo)
+int fifo_get(FIFO *fifo)
 {
     int data;
     if (fifo->free == fifo->size) { // 缓冲区为空，返回-1
@@ -47,7 +57,7 @@ int fifo8_get(FIFO8 *fifo)
 }
 
 /* 查询FIFO保存的数据量 */
-int fifo8_status(FIFO8 *fifo)
+int fifo_status(FIFO *fifo)
 {
     return fifo->size - fifo->free;
 }

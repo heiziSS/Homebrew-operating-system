@@ -1,14 +1,15 @@
 #include "bootpack.h"
 
-FIFO8 keyfifo;
+FIFO *keyfifo;
+int keydata0;
 
 /* 键盘中断 IRQ1 */
 void inthandler21(int *esp)
 {
-    unsigned char data;
+	int data;
     io_out8(PIC0_OCW2, 0x61);   // 通知PIC IRQ-01已经受理完毕
     data = io_in8(PORT_KEYDAT);
-    fifo8_put(&keyfifo, data);
+    fifo_put(keyfifo, data + keydata0);
     return;
 }
 
@@ -29,8 +30,12 @@ void wait_KBC_sendready(void)
 }
 
 /* 初始化键盘控制电路 */
-void init_keyboard(void)
+void init_keyboard(FIFO *fifo, int data0)
 {
+    //将fifo缓冲区的信息保存到全部变量中
+    keyfifo = fifo;
+    keydata0 = data0;
+
     wait_KBC_sendready();
     io_out8(PORT_KEYCMD, KEYCMD_WRITE_MODE);
     wait_KBC_sendready();
