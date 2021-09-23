@@ -25,8 +25,7 @@ void init_pit(void)
     io_out8(PIT_CNT0, 0x9c);    // 中断周期的低8位
     io_out8(PIT_CNT0, 0x2e);    // 中断周期的高8位
     timerctl.count = 0;
-    timerctl.next = UINT_MAX;
-    timerctl.runningTimersNum = 0;
+    timerctl.runningTimersHead = NULL;
     for (i = 0; i < MAX_TIMER; i++) {
         timerctl.timers[i].flags = TIMER_FLAGS_NOTUSE;
     }
@@ -49,6 +48,25 @@ TIMER *timer_alloc(void)
 /* 释放定时器 */
 void timer_free(TIMER *timer)
 {
+    TIMER *pre, *post;
+    // 若该定时器处于运行状态，则需要将其从运行定时器链表中删除
+    if (timer->flags == TIMER_FLAGS_USING) {
+        if (timer == timerctl.runningTimersHead) {
+            timerctl.runningTimersHead = timerctl.runningTimersHead->next;
+        } else {
+            pre = timerctl.runningTimersHead;
+            post = pre->next;
+            while (post != NULL) {
+                if (post == timer) {
+                    pre->next = timer->next;
+                    break;
+                }
+                pre = post;
+                post = post->next;
+            }
+        }
+    }
+    timer->next = NULL;
     timer->flags = TIMER_FLAGS_NOTUSE;
     return;
 }
@@ -58,6 +76,7 @@ void timer_init(TIMER *timer, FIFO *fifo, int data)
 {
     timer->fifo = fifo;
     timer->data = data;
+    timer->next = NULL;
     return;
 }
 
@@ -68,29 +87,29 @@ void timer_init(TIMER *timer, FIFO *fifo, int data)
 void timer_settime(TIMER *timer, unsigned int timeout)
 {
     int e, i, j;
-    if (timerctl.runningTimersNum >= MAX_TIMER) { //定时器已注册满
-        return;
-    }
+    TIMER *pre, *post;
 
     timer->timeout = timeout + timerctl.count;
     timer->flags = TIMER_FLAGS_USING;
     e = io_load_eflags();
     io_cli();   // 关闭中断
 
-    // 搜索注册位置
-    for (i = 0; i < timerctl.runningTimersNum; i++) {
-        if (timerctl.runningTimers[i]->timeout > timer->timeout) {
-            break;
+    pre = timerctl.runningTimersHead;
+    post = pre->next;
+    if ((pre == NULL) || (pre->timeout > timer->timeout)) { // 定时器需要插到首位
+        timer->next = pre;
+        timerctl.runningTimersHead = timer;
+    } else {
+        while (post != NULL) {
+            if (post->timeout > timer->timeout) {
+                break;
+            }
+            pre = post;
+            post = post->next;
         }
+        pre->next = timer;
+        timer->next = post;
     }
-    // i之后全部后移一位
-    for (j = timerctl.runningTimersNum; j > i; j--) {
-        timerctl.runningTimers[j] = timerctl.runningTimers[j - 1];
-    }
-    // 将定时器注册到位置i
-    timerctl.runningTimers[i] = timer;
-    timerctl.runningTimersNum++;
-    timerctl.next = timerctl.runningTimers[0]->timeout;
 
     io_store_eflags(e); //开启中断
     return;
@@ -98,29 +117,29 @@ void timer_settime(TIMER *timer, unsigned int timeout)
 
 void inthandler20(int *esp)
 {
-    int i, j;
+    int i = 0;
+    TIMER *dst;
+    TIMER *t = timerctl.runningTimersHead;
+
     io_out8(PIC0_OCW2, 0x60);   // 把IRQ-0信号接收完了的信息通知给PIC
     timerctl.count++;
-    if (timerctl.next > timerctl.count) {
-        return;     // 还不到下一个时刻，所以结束
+    if ((t == NULL) || (t->timeout > timerctl.count)) {
+        return;     // 还不到下一个时刻，或者当前没有定时器处于运行状态
     }
-	for (i = 0; i < timerctl.runningTimersNum; i++) {
-        if (timerctl.runningTimers[i]->timeout > timerctl.count) {
+
+    while (t != NULL) {
+        if (t->timeout > timerctl.count) {
             break;
         }
-        // 超时
-        timerctl.runningTimers[i]->flags = TIMER_FLAGS_ALLOC;
-        fifo_put(timerctl.runningTimers[i]->fifo, timerctl.runningTimers[i]->data);
+        dst = t;
+        t = t->next;
+        i ++;
+        // 处理超时定时器
+        dst->flags = TIMER_FLAGS_ALLOC;
+        dst->next = NULL;
+        fifo_put(dst->fifo, dst->data);
     }
-    // 第i个之后的定时器全部前移
-    timerctl.runningTimersNum -= i;
-    for (j = 0; j < timerctl.runningTimersNum; j++) {
-        timerctl.runningTimers[j] = timerctl.runningTimers[i + j];
-    }
-    if (timerctl.runningTimersNum > 0) {
-        timerctl.next = timerctl.runningTimers[0]->timeout;
-    } else {
-        timerctl.next = UINT_MAX;
-    }
+
+    timerctl.runningTimersHead = t;     // 第i个之后的定时器全部前移
     return;
 }

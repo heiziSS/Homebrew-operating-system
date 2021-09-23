@@ -198,18 +198,17 @@ void sheet_free(SHEET *sht);
 /* timer.c */
 #define MAX_TIMER       500
 
-typedef struct {
+typedef struct timer {
     unsigned int timeout;   // 定时时间
     unsigned int flags;     // 记录定时器的状态
     FIFO *fifo;
     int data;               // 定时时间到达后向fifo发送的数据
+    struct timer *next;
 } TIMER;
 
 typedef struct {
     unsigned int count;     // 计数器
-    unsigned int next;      // 下一个即将到时的定时器
-    unsigned int runningTimersNum;      // 处于运行状态中的定时器数量
-    TIMER *runningTimers[MAX_TIMER];    // 运行中的定时器指针按定时长短排列
+    TIMER *runningTimersHead;    // 运行中的定时器指针按定时长短排列
     TIMER timers[MAX_TIMER];
 } TIMERCTL;
 
