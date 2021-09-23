@@ -25,7 +25,7 @@ void init_pit(void)
     io_out8(PIT_CNT0, 0x9c);    // 中断周期的低8位
     io_out8(PIT_CNT0, 0x2e);    // 中断周期的高8位
     timerctl.count = 0;
-    timerctl.runningTimersHead = NULL;
+    timerctl.runningTimersHead.next = NULL;
     for (i = 0; i < MAX_TIMER; i++) {
         timerctl.timers[i].flags = TIMER_FLAGS_NOTUSE;
     }
@@ -48,22 +48,17 @@ TIMER *timer_alloc(void)
 /* 释放定时器 */
 void timer_free(TIMER *timer)
 {
-    TIMER *pre, *post;
+    TIMER *pre = &timerctl.runningTimersHead;
+    TIMER *post = pre->next;
     // 若该定时器处于运行状态，则需要将其从运行定时器链表中删除
     if (timer->flags == TIMER_FLAGS_USING) {
-        if (timer == timerctl.runningTimersHead) {
-            timerctl.runningTimersHead = timerctl.runningTimersHead->next;
-        } else {
-            pre = timerctl.runningTimersHead;
-            post = pre->next;
-            while (post != NULL) {
-                if (post == timer) {
-                    pre->next = timer->next;
-                    break;
-                }
-                pre = post;
-                post = post->next;
+        while (post != NULL) {
+            if (post == timer) {
+                pre->next = timer->next;
+                break;
             }
+            pre = post;
+            post = post->next;
         }
     }
     timer->next = NULL;
@@ -86,30 +81,24 @@ void timer_init(TIMER *timer, FIFO *fifo, int data)
 */
 void timer_settime(TIMER *timer, unsigned int timeout)
 {
-    int e, i, j;
-    TIMER *pre, *post;
-
+    int e;
+    TIMER *pre = &timerctl.runningTimersHead;
+    TIMER *post = pre->next;
     timer->timeout = timeout + timerctl.count;
     timer->flags = TIMER_FLAGS_USING;
+
     e = io_load_eflags();
     io_cli();   // 关闭中断
 
-    pre = timerctl.runningTimersHead;
-    post = pre->next;
-    if ((pre == NULL) || (pre->timeout > timer->timeout)) { // 定时器需要插到首位
-        timer->next = pre;
-        timerctl.runningTimersHead = timer;
-    } else {
-        while (post != NULL) {
-            if (post->timeout > timer->timeout) {
-                break;
-            }
-            pre = post;
-            post = post->next;
+    while (post != NULL) {
+        if (post->timeout > timer->timeout) {
+            break;
         }
-        pre->next = timer;
-        timer->next = post;
+        pre = post;
+        post = post->next;
     }
+    pre->next = timer;
+    timer->next = post;
 
     io_store_eflags(e); //开启中断
     return;
@@ -117,9 +106,7 @@ void timer_settime(TIMER *timer, unsigned int timeout)
 
 void inthandler20(int *esp)
 {
-    int i = 0;
-    TIMER *dst;
-    TIMER *t = timerctl.runningTimersHead;
+    TIMER *t = timerctl.runningTimersHead.next;
 
     io_out8(PIC0_OCW2, 0x60);   // 把IRQ-0信号接收完了的信息通知给PIC
     timerctl.count++;
@@ -131,15 +118,12 @@ void inthandler20(int *esp)
         if (t->timeout > timerctl.count) {
             break;
         }
-        dst = t;
-        t = t->next;
-        i ++;
         // 处理超时定时器
-        dst->flags = TIMER_FLAGS_ALLOC;
-        dst->next = NULL;
-        fifo_put(dst->fifo, dst->data);
+        t->flags = TIMER_FLAGS_ALLOC;
+        fifo_put(t->fifo, t->data);
+        t = t->next;
     }
+    timerctl.runningTimersHead.next = t;
 
-    timerctl.runningTimersHead = t;     // 第i个之后的定时器全部前移
     return;
 }

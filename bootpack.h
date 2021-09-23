@@ -207,8 +207,8 @@ typedef struct timer {
 } TIMER;
 
 typedef struct {
-    unsigned int count;     // 计数器
-    TIMER *runningTimersHead;    // 运行中的定时器指针按定时长短排列
+    unsigned int count;         // 计数器
+    TIMER runningTimersHead;    // 运行定时器链表的头部
     TIMER timers[MAX_TIMER];
 } TIMERCTL;
 
