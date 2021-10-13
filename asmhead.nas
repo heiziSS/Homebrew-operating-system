@@ -1,6 +1,16 @@
 ; haribote-os boot asm
 ; TAB=4
 
+[INSTRSET "i486p"]
+
+VBEMODE EQU     0x105
+; VBE的画面模式号码如下
+; 0x100		640 x 400 x 8bit 彩色
+; 0x101         640 x 480 x 8bit 彩色
+; 0x103         800 x 600 x 8bit 彩色
+; 0x105         1024 x 768 x 8bit 彩色
+; 0x107         1280 x 1024 x 8bit 彩色
+
 BOTPAK  EQU     0x00280000      ; 引导bootpack
 DSKCAC  EQU     0x00100000      ; 磁盘缓存位置
 DSKCAC0 EQU     0x00008000      ; 磁盘缓存位置（真实模式）
@@ -15,18 +25,65 @@ VRAM    EQU     0x0ff8          ; 图像缓冲区的开始地址
 
         ORG     0xc200          ; 指明程序的装载地址
 
-; 设置屏幕模式
+;确认VB是否存在
 
-        MOV     BX, 0x4101      ; VBE，640x480x8位彩色
-        MOV     AX, 0x4f02
+        MOV     AX,0x9000
+        MOV     ES,AX
+        MOV     DI,0
+        MOV     AX,0x4f00
         INT     0x10
-        MOV     BYTE [VMODE], 8 ; 记录画面模式
-        MOV     WORD [SCRNX], 640
-        MOV     WORD [SCRNY], 480
-        MOV     DWORD [VRAM], 0xe0000000
+        CMP     AX,0x004f
+        JNE     scrn320
+
+; 检查VBE的版本
+
+        MOV     AX,[ES:DI+4]
+        CMP     AX,0x0200
+        JB      scrn320         ; if (AX < 0x0200) goto scrn320
+
+; 取得画面模式信息
+
+        MOV     CX,VBEMODE
+        MOV     AX,0x4f01
+        INT     0x10
+        CMP     AX,0x004f
+        JNE     scrn320
+
+; 画面模式信息的确认
+
+        CMP     BYTE [ES:DI+0x19],8
+        JNE     scrn320
+        CMP     BYTE [ES:DI+0x1b],4
+        JNE     scrn320
+        MOV     AX,[ES:DI+0x00]
+        AND     AX,0x0080
+        JZ      scrn320         ; 模式属性的bit7是0，所以放弃
+
+; 画面模式的切换
+
+        MOV     BX,VBEMODE+0x4000
+        MOV     AX,0x4f02
+        INT     0x10
+        MOV     BYTE [VMODE],8  ; 记下画面模式（参考C语言）
+        MOV     AX,[ES:DI+0x12]
+        MOV     [SCRNX],AX
+	MOV	AX,[ES:DI+0x14]
+	MOV	[SCRNY],AX
+        MOV     EAX,[ES:DI+0x28]
+        MOV     [VRAM],EAX
+        JMP     keystatus
+
+scrn320:
+        MOV     AL,0x13         ; VGA图、320x320x8bit彩色
+        MOV     AH,0x00
+        INT     0x10
+        MOV     BYTE [VMODE],8  ; 记下画面模式（参考C语言）
+        MOV     WORD [SCRNX],320
+        MOV     WORD [SCRNY],200
+        MOV     DWORD [VRAM],0x000a0000
 
 ; 用BIOS取得键盘上各种LED指示灯的状态
-
+keystatus:
         MOV     AH, 0x02
         INT     0x16            ; keyboard BIOS
         MOV     [LEDS], AL
