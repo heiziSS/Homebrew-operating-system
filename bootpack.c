@@ -3,6 +3,7 @@
 
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
 void putfonts8_asc_sht(SHEET *sht, int x, int y, int color, int backColor, char *str, int strLen);
+void make_textbox8(SHEET *sht, int x0, int y0, int sx, int sy, int c);
 
 void HariMain(void)
 {
@@ -18,6 +19,15 @@ void HariMain(void)
     SHTCTL *shtctl;
     SHEET *sht_back, *sht_mouse, *sht_win;
     unsigned char *buf_back, buf_mouse[256], *buf_win;
+    int cursor_x, cursor_c;
+	static char keytable[0x54] = {
+		0,   0,   '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^', 0,   0,
+		'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '@', '[', 0,   0,   'A', 'S',
+		'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', ':', 0,   0,   ']', 'Z', 'X', 'C', 'V',
+		'B', 'N', 'M', ',', '.', '/', 0,   '*', 0,   ' ', 0,   0,   0,   0,   0,   0,
+		0,   0,   0,   0,   0,   0,   0,   '7', '8', '9', '-', '4', '5', '6', '+', '1',
+		'2', '3', '0', '.'
+	};
     
     init_gdtidt();
     init_pic();
@@ -58,7 +68,10 @@ void HariMain(void)
     sheet_setbuf(sht_win, buf_win, 160, 52, -1);
     init_screen8(buf_back, binfo->scrnx, binfo->scrny);
     init_mouse_cursor8(buf_mouse, 99);
-    make_window8(buf_win, 160, 52, "counter");
+    make_window8(buf_win, 160, 52, "window");
+    make_textbox8(sht_win, 8, 28, 144, 16, COL8_FFFFFF);
+    cursor_x = 8;
+    cursor_c = COL8_FFFFFF;
     sheet_slide(sht_back, 0, 0);
     mx = (binfo->scrnx - 16) >> 1;   // 坐标计算，使其位于屏幕中心
     my = (binfo->scrny - 28 - 16) >> 1;
@@ -73,18 +86,30 @@ void HariMain(void)
     putfonts8_asc_sht(sht_back, 0, 32, COL8_FFFFFF, COL8_008484, s, 40);
 
     for (;;) {
-		count++;
-
         io_cli();
         if (fifo_status(&fifo) == 0) {
-			io_sti();
+			io_stihlt();
         } else {
             i = fifo_get(&fifo);
             io_sti();
             if (256 <= i && i < 512) {
-                i -= 256;
-                sprintf(s, "%02X", i);
+                sprintf(s, "%02X", i - 256);
                 putfonts8_asc_sht(sht_back, 0, 16, COL8_FFFFFF, COL8_008484, s, 2);
+                if (i < 0x54 + 256) {
+                    if (keytable[i - 256] != 0 && cursor_x < 144) { // 一般字符
+                        s[0] = keytable[i - 256];
+                        s[1] = 0;
+                        putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, s, 1);
+                        cursor_x += 8; // 显示完1个字符就前移1次光标
+                    }
+                }
+                if (i == 0xe + 256 && cursor_x > 8) { //退格键
+                    putfonts8_asc_sht(sht_win, cursor_x, 28, COL8_000000, COL8_FFFFFF, " ", 1);
+                    cursor_x -= 8; // 用空格键把光标消去后，后移1次光标
+                }
+                // 光标再现
+                boxfill8(sht_win->buf, sht_win->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
+                sheet_refresh(sht_win, cursor_x, 28, cursor_x + 8, 44);
             } else if (512 <= i && i <= 767) {
                 i -= 512;
                 if (mouse_decode(&mdec, i) == 1) {
@@ -121,21 +146,19 @@ void HariMain(void)
                 }
             } else if (i == 10) { // 10秒定时器
                 putfonts8_asc_sht(sht_back, 0, 64, COL8_FFFFFF, COL8_008484, "10[sec]", 7);
-				sprintf(s, "%010d", count);
-				putfonts8_asc_sht(sht_win, 40, 28, COL8_000000, COL8_C6C6C6, s, 10);
             } else if (i == 3) { // 3秒定时器
                 putfonts8_asc_sht(sht_back, 0, 80, COL8_FFFFFF, COL8_008484, "3[sec]", 6);
-				count = 0; /* 測定開始 */
-            } else if (i == 1) { // 光标用时定时器
-                timer_init(timer3, &fifo, 0); //设置成0
-                boxfill8(buf_back, binfo->scrnx, COL8_FFFFFF, 8, 96, 15, 111);
+            } else if (i <= 1) {
+                if (i == 1) { // 光标用时定时器
+                    timer_init(timer3, &fifo, 0); //设置成0
+                    cursor_c = COL8_000000;
+                } else { // 光标用时定时器
+                    timer_init(timer3, &fifo, 1); //设置成1
+                    cursor_c = COL8_FFFFFF;
+                }
                 timer_settime(timer3, 50);
-                sheet_refresh(sht_back, 8, 96, 16, 112);
-            } else if (i == 0){ // 光标用时定时器
-                timer_init(timer3, &fifo, 1); //设置成1
-                boxfill8(buf_back, binfo->scrnx, COL8_008484, 8, 96, 15, 111);  
-                timer_settime(timer3, 50);
-                sheet_refresh(sht_back, 8, 96, 16, 112);
+                boxfill8(sht_win->buf, sht_win->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
+                sheet_refresh(sht_win, cursor_x, 28, cursor_x + 8, 44);
             }
         }
     }
@@ -195,5 +218,20 @@ void putfonts8_asc_sht(SHEET *sht, int x, int y, int color, int backColor, char 
     boxfill8(sht->buf, sht->bxsize, backColor, x, y, x + strLen * 8 - 1, y + 15);
     putfonts8_asc(sht->buf, sht->bxsize, x, y, color, str);
     sheet_refresh(sht, x, y, x + strLen * 8, y + 16);
+    return;
+}
+
+void make_textbox8(SHEET *sht, int x0, int y0, int sx, int sy, int c)
+{
+    int x1 = x0 + sx, y1 = y0 + sy;
+    boxfill8(sht->buf, sht->bxsize, COL8_848484, x0 - 2, y0 - 3, x1 + 1, y0 - 3);
+    boxfill8(sht->buf, sht->bxsize, COL8_848484, x0 - 3, y0 - 3, x0 - 3, y1 + 1);
+    boxfill8(sht->buf, sht->bxsize, COL8_FFFFFF, x0 - 3, y1 + 2, x1 + 1, y1 + 2);
+    boxfill8(sht->buf, sht->bxsize, COL8_FFFFFF, x1 + 2, y0 - 3, x1 + 2, y1 + 2);
+    boxfill8(sht->buf, sht->bxsize, COL8_000000, x0 - 1, y0 - 2, x1 + 0, y0 - 2);
+    boxfill8(sht->buf, sht->bxsize, COL8_000000, x0 - 2, y0 - 2, x0 - 2, y1 + 0);
+    boxfill8(sht->buf, sht->bxsize, COL8_C6C6C6, x0 - 2, y1 + 1, x1 + 0, y1 + 1);
+    boxfill8(sht->buf, sht->bxsize, COL8_C6C6C6, x1 + 1, y0 - 2, x1 + 1, y1 + 1);
+    boxfill8(sht->buf, sht->bxsize, c,           x0 - 1, y0 - 1, x1 + 0, y1 + 0);
     return;
 }
