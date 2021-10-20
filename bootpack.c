@@ -12,7 +12,7 @@ void HariMain(void)
     char s[40];
     int fifobuf[128];
     TIMER *timer, *timer2, *timer3;
-	int mx, my, i, count = 0;
+	int mx, my, i;
     unsigned int memtotal;
     MOUSE_DEC mdec;
     MEMMAN *memman = (MEMMAN *) MEMMAN_ADDR;
@@ -143,6 +143,9 @@ void HariMain(void)
                     sprintf(s, "(%3d, %3d)", mx, my);
                     putfonts8_asc_sht(sht_back, 0, 0, COL8_FFFFFF, COL8_008484, s, 10);
                     sheet_slide(sht_mouse, mx, my);
+                    if ((mdec.btn & 0x1) != 0) {
+                        sheet_slide(sht_win, mx, my);
+                    }
                 }
             } else if (i == 10) { // 10秒定时器
                 putfonts8_asc_sht(sht_back, 0, 64, COL8_FFFFFF, COL8_008484, "10[sec]", 7);
