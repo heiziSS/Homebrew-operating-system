@@ -24,11 +24,13 @@ void load_gdtr(int limit, int addr);    // 将指定的段上限（limit）和�
 void load_idtr(int limit, int addr);
 int load_cr0(void);                     // 为了禁止缓存，需要对CR0寄存器的某一标志位进行操作
 void store_cr0(int cr0);
+void load_tr(int tr);
 void asm_inthandler20(void);
 void asm_inthandler21(void);
 void asm_inthandler27(void);
 void asm_inthandler2c(void);
 unsigned int memtest_sub(unsigned int start, unsigned int end);
+void taskswitch4(void);
 
 /* fifo.c */
 typedef struct {
@@ -78,6 +80,7 @@ void putblock8_8(char *vram, int vxsize, int pxsize,
 #define LIMIT_BOTPAK    0x0007ffff      // 存放bootpack.hrb的空间大小512Kb
 #define AR_DATA32_RW    0x4092
 #define AR_CODE32_ER    0x409a
+#define AR_TSS32        0x0089
 #define AR_INTGATE32    0x008e
 
 typedef struct {

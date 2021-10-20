@@ -5,6 +5,28 @@ void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
 void putfonts8_asc_sht(SHEET *sht, int x, int y, int color, int backColor, char *str, int strLen);
 void make_textbox8(SHEET *sht, int x0, int y0, int sx, int sy, int c);
 
+void task_b_main(void);
+
+/*
+    任务状态段（task status segment）
+    TSS包含26个int成员，总计104字节
+    backlink ~ cr3: 任务设置相关的信息，切换任务时这些成员不会被写入，backlink除外，某些情况下会被写入
+    第2行是32位寄存器，第3行是16位寄存器
+    eip：extended instruction pointer 扩展指令指针寄存器
+    ldtr ~ iomap: 任务设置相关信息
+
+    任务切换：
+    需要要用到指令JMP，该指令分为两种：只改写EIP的称为near模式，同时改写EIP和CS的称为far模式。
+    JMP指令指定的目标地址不是可执行的代码，而是TSS的话，CPU就不会执行通常的改写EIP和CS的操作，
+    而是将这条指令理解为任务切换。
+*/
+typedef struct {
+    int backlink, esp0, ss0, esp1, ss1, esp2, ss2, cr3;
+    int eip, eflags, eax, ecx, edx, ebx, esp, ebp, esi, edi;
+    int es, cs, ss, ds, fs, gs;
+    int ldtr, iomap;
+} TSS32;
+
 void HariMain(void)
 {
     BOOTINFO *binfo = (BOOTINFO *) ADR_BOOTINFO;
@@ -28,6 +50,9 @@ void HariMain(void)
 		0,   0,   0,   0,   0,   0,   0,   '7', '8', '9', '-', '4', '5', '6', '+', '1',
 		'2', '3', '0', '.'
 	};
+    TSS32 tss_a, tss_b;
+    SEGMENT_DESCRIPTOR *gdt = (SEGMENT_DESCRIPTOR *) ADR_GDT;
+    int task_b_esp;
     
     init_gdtidt();
     init_pic();
@@ -84,6 +109,31 @@ void HariMain(void)
     putfonts8_asc_sht(sht_back, 0, 0, COL8_FFFFFF, COL8_008484, s, 10);
     sprintf(s, "memory %dMB  free: %dKB", memtotal / (1024 * 1024), memman_total(memman) / 1024);
     putfonts8_asc_sht(sht_back, 0, 32, COL8_FFFFFF, COL8_008484, s, 40);
+
+    tss_a.ldtr = 0;
+    tss_a.iomap = 0x40000000;
+    tss_b.ldtr = 0;
+    tss_b.iomap = 0x40000000;
+    set_segmdesc(gdt + 3, 103, (int) &tss_a, AR_TSS32);
+    set_segmdesc(gdt + 4, 103, (int) &tss_b, AR_TSS32);
+    load_tr(3 * 8);
+    task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024;
+    tss_b.eip = (int) &task_b_main;
+    tss_b.eflags = 0x00000202;
+    tss_b.eax = 0;
+    tss_b.ecx = 0;
+    tss_b.edx = 0;
+    tss_b.ebx = 0;
+    tss_b.esp = task_b_esp;
+    tss_b.ebp = 0;
+    tss_b.esi = 0;
+    tss_b.edi = 0;
+    tss_b.es = 1 * 8;
+    tss_b.cs = 2 * 8;
+    tss_b.ss = 1 * 8;
+    tss_b.ds = 1 * 8;
+    tss_b.fs = 1 * 8;
+    tss_b.gs = 1 * 8;
 
     for (;;) {
         io_cli();
@@ -149,6 +199,7 @@ void HariMain(void)
                 }
             } else if (i == 10) { // 10秒定时器
                 putfonts8_asc_sht(sht_back, 0, 64, COL8_FFFFFF, COL8_008484, "10[sec]", 7);
+                taskswitch4();
             } else if (i == 3) { // 3秒定时器
                 putfonts8_asc_sht(sht_back, 0, 80, COL8_FFFFFF, COL8_008484, "3[sec]", 6);
             } else if (i <= 1) {
@@ -237,4 +288,11 @@ void make_textbox8(SHEET *sht, int x0, int y0, int sx, int sy, int c)
     boxfill8(sht->buf, sht->bxsize, COL8_C6C6C6, x1 + 1, y0 - 2, x1 + 1, y1 + 1);
     boxfill8(sht->buf, sht->bxsize, c,           x0 - 1, y0 - 1, x1 + 0, y1 + 0);
     return;
+}
+
+void task_b_main(void)
+{
+    for (;;) {
+        io_hlt();
+    }
 }
