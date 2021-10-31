@@ -5,7 +5,7 @@ void make_window8(unsigned char *buf, int xsize, int ysize, char *title);
 void putfonts8_asc_sht(SHEET *sht, int x, int y, int color, int backColor, char *str, int strLen);
 void make_textbox8(SHEET *sht, int x0, int y0, int sx, int sy, int c);
 
-void task_b_main(void);
+void task_b_main(SHEET *sht_back);
 
 /*
     任务状态段（task status segment）
@@ -122,7 +122,7 @@ void HariMain(void)
     set_segmdesc(gdt + 3, 103, (int) &tss_a, AR_TSS32);
     set_segmdesc(gdt + 4, 103, (int) &tss_b, AR_TSS32);
     load_tr(3 * 8);
-    task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024; //为任务B分配64KB的内存，同时将ESP指向的地址移到栈末尾
+    task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8; //为任务B分配64KB的内存，同时将ESP指向的地址移到栈末尾
     tss_b.eip = (int) &task_b_main; //定义切换到任务B时运行起始位置
     tss_b.eflags = 0x00000202;
     tss_b.eax = 0;
@@ -139,7 +139,7 @@ void HariMain(void)
     tss_b.ds = 1 * 8;
     tss_b.fs = 1 * 8;
     tss_b.gs = 1 * 8;
-    *((int *) 0x0fec) = (int) sht_back;
+    *((int *) (task_b_esp + 4)) = (int) sht_back;   // 任务B的[ESP+4]存入sht_back的值，作为task_b_main的入参
 
     for (;;) {
         io_cli();
@@ -298,31 +298,34 @@ void make_textbox8(SHEET *sht, int x0, int y0, int sx, int sy, int c)
     return;
 }
 
-void task_b_main(void)
+void task_b_main(SHEET *sht_back)
 {
     FIFO fifo;
-    TIMER *timer_ts;
+    TIMER *timer_ts, *timer_put;
     int i, fifobuf[128], count = 0;
-    char s[11];
-    SHEET *sht_back;
+    char s[12];
 
     fifo_init(&fifo, 128, fifobuf);
     timer_ts = timer_alloc();
-    timer_init(timer_ts, &fifo, 1);
+    timer_init(timer_ts, &fifo, 2);
     timer_settime(timer_ts, 2);
-    sht_back = (SHEET *) *((int *) 0x0fec);
+    timer_put = timer_alloc();
+    timer_init(timer_put, &fifo, 1);
+    timer_settime(timer_put, 1);
 
     for (;;) {
         count++;
-        sprintf(s, "%10d", count);
-        putfonts8_asc_sht(sht_back, 0, 144, COL8_FFFFFF, COL8_008484, s, 10);
         io_cli();
         if (fifo_status(&fifo) == 0) {
             io_sti();
         } else {
             i = fifo_get(&fifo);
             io_sti();
-            if (i == 1) {   // 任务切换
+            if (i == 1) {
+                sprintf(s, "%11d", count);
+                putfonts8_asc_sht(sht_back, 0, 144, COL8_FFFFFF, COL8_008484, s, 11);
+                timer_settime(timer_put, 1);
+            } else if (i == 2) {   // 任务切换
                 farjmp(0, 3*8);
                 timer_settime(timer_ts, 2);
             }
