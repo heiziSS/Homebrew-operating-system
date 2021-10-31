@@ -16,8 +16,7 @@
         GLOBAL  _asm_inthandler20, _asm_inthandler21
         GLOBAL  _asm_inthandler27, _asm_inthandler2c
         GLOBAL  _memtest_sub
-        GLOBAL  _taskswitch4
-        GLOBAL  _taskswitch3
+        GLOBAL  _farjmp
         EXTERN  _inthandler20, _inthandler21
         EXTERN  _inthandler27, _inthandler2c
 
@@ -208,10 +207,6 @@ mts_fin:
         POP     EDI
         RET
 
-_taskswitch4:           ; void taskswitch4(void);
-        JMP     4*8:0
-        RET
-
-_taskswitch3:           ; void taskswitch3(void);
-        JMP     3*8:0
+_farjmp:                ; void farjmp(int eip, int cs);
+        JMP     FAR [ESP+4]     ; CPU从指定寄存器中读取4个字节的数据存入EIP寄存器，再读取2个字节的数据存入CS寄存器。[ESP+4]存放eip，[ESP+8]存放cs
         RET

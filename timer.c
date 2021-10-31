@@ -76,7 +76,7 @@ void timer_init(TIMER *timer, FIFO *fifo, int data)
 }
 
 /*
-    设置定时器时间 
+    设置定时器时间，单位：10ms
     timer注册到runningTimers中，注册时不能被中断打断，所以需要先关闭中断
 */
 void timer_settime(TIMER *timer, unsigned int timeout)
