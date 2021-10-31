@@ -13,6 +13,7 @@ void task_b_main(void);
     backlink ~ cr3: 任务设置相关的信息，切换任务时这些成员不会被写入，backlink除外，某些情况下会被写入
     第2行是32位寄存器，第3行是16位寄存器
     eip：extended instruction pointer 扩展指令指针寄存器
+    sep：栈地址
     ldtr ~ iomap: 任务设置相关信息
 
     任务切换：
@@ -117,8 +118,8 @@ void HariMain(void)
     set_segmdesc(gdt + 3, 103, (int) &tss_a, AR_TSS32);
     set_segmdesc(gdt + 4, 103, (int) &tss_b, AR_TSS32);
     load_tr(3 * 8);
-    task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024;
-    tss_b.eip = (int) &task_b_main;
+    task_b_esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024; //为任务B分配64KB的内存，同时将ESP指向的地址移到栈末尾
+    tss_b.eip = (int) &task_b_main; //定义切换到任务B时运行起始位置
     tss_b.eflags = 0x00000202;
     tss_b.eax = 0;
     tss_b.ecx = 0;
@@ -292,7 +293,25 @@ void make_textbox8(SHEET *sht, int x0, int y0, int sx, int sy, int c)
 
 void task_b_main(void)
 {
+    FIFO fifo;
+    TIMER *timer;
+    int i, fifobuf[128];
+
+    fifo_init(&fifo, 128, fifobuf);
+    timer = timer_alloc();
+    timer_init(timer, &fifo, 1);
+    timer_settime(timer, 500);
+
     for (;;) {
-        io_hlt();
+        io_cli();
+        if (fifo_status(&fifo) == 0) {
+            io_stihlt();
+        } else {
+            i = fifo_get(&fifo);
+            io_sti();
+            if (i == 1) {
+                taskswitch3();  // 返回任务A
+            }
+        }
     }
 }

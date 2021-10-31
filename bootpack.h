@@ -30,7 +30,8 @@ void asm_inthandler21(void);
 void asm_inthandler27(void);
 void asm_inthandler2c(void);
 unsigned int memtest_sub(unsigned int start, unsigned int end);
-void taskswitch4(void);
+void taskswitch4(void); // far模式跳转指令，地址段（冒号前面的4*8的部分）要指向TSS这一点比较重要，而偏移量（冒号后面的0的部分）并没有什么实际作用，会被忽略掉，一般写0
+void taskswitch3(void);
 
 /* fifo.c */
 typedef struct {
