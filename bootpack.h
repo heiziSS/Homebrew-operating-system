@@ -222,3 +222,8 @@ void timer_free(TIMER *timer);
 void timer_init(TIMER *timer, FIFO *fifo, int data);
 void timer_settime(TIMER *timer, unsigned int timeout);
 void inthandler20(int *esp);
+
+/* mtask.c */
+extern TIMER *mt_timer;
+void mt_init(void);
+void mt_taskswitch(void);

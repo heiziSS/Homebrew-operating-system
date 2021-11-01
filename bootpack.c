@@ -34,7 +34,7 @@ void HariMain(void)
     FIFO fifo;
     char s[40];
     int fifobuf[128];
-    TIMER *timer, *timer2, *timer3, *timer_ts;
+    TIMER *timer, *timer2, *timer3;
 	int mx, my, i;
     unsigned int memtotal;
     MOUSE_DEC mdec;
@@ -76,10 +76,6 @@ void HariMain(void)
     timer3 = timer_alloc();
     timer_init(timer3, &fifo, 1);
     timer_settime(timer3, 50);
-
-    timer_ts = timer_alloc();
-    timer_init(timer_ts, &fifo, 2);
-    timer_settime(timer_ts, 2);
 
     memtotal = memtest(0x00400000, 0xbfffffff); // 0x00400000以前的内存已经被使用了，参考8.5节内存分布图
     memman_init(memman);
@@ -140,6 +136,7 @@ void HariMain(void)
     tss_b.fs = 1 * 8;
     tss_b.gs = 1 * 8;
     *((int *) (task_b_esp + 4)) = (int) sht_back;   // 任务B的[ESP+4]存入sht_back的值，作为task_b_main的入参
+    mt_init();
 
     for (;;) {
         io_cli();
@@ -148,10 +145,7 @@ void HariMain(void)
         } else {
             i = fifo_get(&fifo);
             io_sti();
-            if (i == 2) {
-                farjmp(0, 4*8); // 切换到任务B，任务B的TSS存放在段4指定的内存中
-                timer_settime(timer_ts, 2);
-            } else if (256 <= i && i < 512) {
+            if (256 <= i && i < 512) {
                 sprintf(s, "%02X", i - 256);
                 putfonts8_asc_sht(sht_back, 0, 16, COL8_FFFFFF, COL8_008484, s, 2);
                 if (i < 0x54 + 256) {
@@ -301,17 +295,17 @@ void make_textbox8(SHEET *sht, int x0, int y0, int sx, int sy, int c)
 void task_b_main(SHEET *sht_back)
 {
     FIFO fifo;
-    TIMER *timer_ts, *timer_put;
-    int i, fifobuf[128], count = 0;
+    TIMER *timer_put, *timer_1s;
+    int i, fifobuf[128], count = 0, count0 = 0;
     char s[12];
 
     fifo_init(&fifo, 128, fifobuf);
-    timer_ts = timer_alloc();
-    timer_init(timer_ts, &fifo, 2);
-    timer_settime(timer_ts, 2);
     timer_put = timer_alloc();
     timer_init(timer_put, &fifo, 1);
     timer_settime(timer_put, 1);
+    timer_1s = timer_alloc();
+    timer_init(timer_1s, &fifo, 100);
+    timer_settime(timer_1s, 100);
 
     for (;;) {
         count++;
@@ -325,9 +319,11 @@ void task_b_main(SHEET *sht_back)
                 sprintf(s, "%11d", count);
                 putfonts8_asc_sht(sht_back, 0, 144, COL8_FFFFFF, COL8_008484, s, 11);
                 timer_settime(timer_put, 1);
-            } else if (i == 2) {   // 任务切换
-                farjmp(0, 3*8);
-                timer_settime(timer_ts, 2);
+            } else if (i == 100) {   // 任务切换
+                sprintf(s, "%11d", count - count0);
+                putfonts8_asc_sht(sht_back, 0, 128, COL8_FFFFFF, COL8_008484, s, 11);
+                count0 = count;
+                timer_settime(timer_1s, 100);
             }
         }
     }

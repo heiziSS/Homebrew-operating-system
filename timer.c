@@ -107,6 +107,7 @@ void timer_settime(TIMER *timer, unsigned int timeout)
 void inthandler20(int *esp)
 {
     TIMER *t = timerctl.runningTimersHead.next;
+    char ts = 0;
 
     io_out8(PIC0_OCW2, 0x60);   // 把IRQ-0信号接收完了的信息通知给PIC
     timerctl.count++;
@@ -120,10 +121,17 @@ void inthandler20(int *esp)
         }
         // 处理超时定时器
         t->flags = TIMER_FLAGS_ALLOC;
-        fifo_put(t->fifo, t->data);
+        if (t != mt_timer) {
+            fifo_put(t->fifo, t->data);
+        } else {
+            ts = 1; // 本时间片到时，切换进程
+        }
         t = t->next;
     }
     timerctl.runningTimersHead.next = t;
+    if (ts == 1) {
+        mt_taskswitch();
+    }
 
     return;
 }
