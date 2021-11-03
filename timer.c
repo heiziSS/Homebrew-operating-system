@@ -121,7 +121,7 @@ void inthandler20(int *esp)
         }
         // 处理超时定时器
         t->flags = TIMER_FLAGS_ALLOC;
-        if (t != mt_timer) {
+        if (t != gTaskTimer) {
             fifo_put(t->fifo, t->data);
         } else {
             ts = 1; // 本时间片到时，切换进程
@@ -129,8 +129,9 @@ void inthandler20(int *esp)
         t = t->next;
     }
     timerctl.runningTimersHead.next = t;
+
     if (ts == 1) {
-        mt_taskswitch();
+        task_switch();
     }
 
     return;

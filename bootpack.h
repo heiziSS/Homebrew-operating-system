@@ -224,6 +224,46 @@ void timer_settime(TIMER *timer, unsigned int timeout);
 void inthandler20(int *esp);
 
 /* mtask.c */
-extern TIMER *mt_timer;
-void mt_init(void);
-void mt_taskswitch(void);
+#define MAX_TASKS       1000    // 最大任务数量
+#define TASK_GDT0       3       // 定义从GDT的几号开始分配给TSS
+/*
+    任务状态段（task status segment）
+    TSS包含26个int成员，总计104字节
+    backlink ~ cr3: 任务设置相关的信息，切换任务时这些成员不会被写入，backlink除外，某些情况下会被写入
+    第2行是32位寄存器，第3行是16位寄存器
+    eip：extended instruction pointer 扩展指令指针寄存器
+    sep：栈地址
+    ldtr ~ iomap: 任务设置相关信息
+
+    任务切换：
+    需要要用到指令JMP，该指令分为两种：只改写EIP的称为near模式，同时改写EIP和CS的称为far模式。
+    JMP指令指定的目标地址不是可执行的代码，而是TSS的话，CPU就不会执行通常的改写EIP和CS的操作，
+    而是将这条指令理解为任务切换。
+*/
+typedef struct {
+    int backlink, esp0, ss0, esp1, ss1, esp2, ss2, cr3;
+    int eip, eflags, eax, ecx, edx, ebx, esp, ebp, esi, edi;
+    int es, cs, ss, ds, fs, gs;
+    int ldtr, iomap;
+} TSS32;
+
+typedef struct task {
+    int sel;        //存放GDT的编号
+    int flags;
+    TSS32 tss;
+    struct task *next;
+} TASK;
+
+typedef struct {
+    TASK *pCurTask;         // 当前正在运行的任务
+    TASK runningtasksHead;  // 正在运行的任务链表的头部
+    TASK tasks[MAX_TASKS];
+    TASK *pTask;
+} TASKCTL;
+
+extern TIMER *gTaskTimer;
+
+TASK *task_init(MEMMAN *memman);
+TASK *task_alloc(void);
+void task_run(TASK *task);
+void task_switch(void);
