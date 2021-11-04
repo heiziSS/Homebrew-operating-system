@@ -30,12 +30,12 @@ void HariMain(void)
 		0,   0,   0,   0,   0,   0,   0,   '7', '8', '9', '-', '4', '5', '6', '+', '1',
 		'2', '3', '0', '.'
 	};
-    TASK *task_b;
+    TASK *task_a, *task_b;
     
     init_gdtidt();
     init_pic();
     io_sti(); //由于 IDT/PIC 初始化完成，因此取消了 CPU 中断禁令
-    fifo_init(&fifo, 128, fifobuf);
+    fifo_init(&fifo, 128, fifobuf, 0);
     init_pit();
     init_keyboard(&fifo, 256);
     enable_mouse(&fifo, 512, &mdec);
@@ -88,7 +88,8 @@ void HariMain(void)
     sprintf(s, "memory %dMB  free: %dKB", memtotal / (1024 * 1024), memman_total(memman) / 1024);
     putfonts8_asc_sht(sht_back, 0, 32, COL8_FFFFFF, COL8_008484, s, 40);
 
-    task_init(memman);
+    task_a = task_init(memman);
+    fifo.task = task_a;
     task_b = task_alloc();
     task_b->tss.esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024 - 8; //为任务B分配64KB的内存，同时将ESP指向的地址移到栈末尾
     task_b->tss.eip = (int) &task_b_main; //定义切换到任务B时运行起始位置
@@ -104,7 +105,8 @@ void HariMain(void)
     for (;;) {
         io_cli();
         if (fifo_status(&fifo) == 0) {
-			io_stihlt();
+            task_sleep(task_a);
+			io_sti();
         } else {
             i = fifo_get(&fifo);
             io_sti();
@@ -262,7 +264,7 @@ void task_b_main(SHEET *sht_back)
     int i, fifobuf[128], count = 0, count0 = 0;
     char s[12];
 
-    fifo_init(&fifo, 128, fifobuf);
+    fifo_init(&fifo, 128, fifobuf, 0);
     timer_put = timer_alloc();
     timer_init(timer_put, &fifo, 1);
     timer_settime(timer_put, 1);
@@ -282,7 +284,7 @@ void task_b_main(SHEET *sht_back)
                 sprintf(s, "%11d", count);
                 putfonts8_asc_sht(sht_back, 0, 144, COL8_FFFFFF, COL8_008484, s, 11);
                 timer_settime(timer_put, 1);
-            } else if (i == 100) {   // 任务切换
+            } else if (i == 100) {
                 sprintf(s, "%11d", count - count0);
                 putfonts8_asc_sht(sht_back, 0, 128, COL8_FFFFFF, COL8_008484, s, 11);
                 count0 = count;

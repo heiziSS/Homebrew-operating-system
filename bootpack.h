@@ -36,9 +36,10 @@ void farjmp(int eip, int cs); // far模式跳转指令，地址段（冒号前�
 typedef struct {
     int *buf;
     int w, r, size, free, flags;
+    struct task *task;     //有数据写入时需要唤醒的任务
 } FIFO;
 
-void fifo_init(FIFO *fifo, int size, int *buf);
+void fifo_init(FIFO *fifo, int size, int *buf, struct task *task);
 int fifo_put(FIFO *fifo, int data);
 int fifo_get(FIFO *fifo);
 int fifo_status(FIFO *fifo);
@@ -258,8 +259,15 @@ typedef struct {
     TASK *pCurTask;         // 当前正在运行的任务
     TASK runningtasksHead;  // 正在运行的任务链表的头部
     TASK tasks[MAX_TASKS];
-    TASK *pTask;
+    TASK *pTask;            // 运行任务链表尾指针
 } TASKCTL;
+
+enum {
+    TASK_NOTUSE,
+    TASK_ALLOC,
+    TASK_RUNNING,
+    TASK_MAX,
+};
 
 extern TIMER *gTaskTimer;
 
@@ -267,3 +275,4 @@ TASK *task_init(MEMMAN *memman);
 TASK *task_alloc(void);
 void task_run(TASK *task);
 void task_switch(void);
+void task_sleep(TASK *task);

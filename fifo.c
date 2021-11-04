@@ -13,7 +13,7 @@
 #define FLAGS_OVERRUN       0x0001
 
 /* 初始化FIFO缓冲区 */
-void fifo_init(FIFO *fifo, int size, int *buf)
+void fifo_init(FIFO *fifo, int size, int *buf, TASK *task)
 {
     fifo->size = size;
     fifo->buf = buf;
@@ -21,6 +21,7 @@ void fifo_init(FIFO *fifo, int size, int *buf)
     fifo->flags = 0;
     fifo->w = 0; // 下一个数据写入位置
     fifo->r = 0; // 下一个数据读出位置
+    fifo->task = task; //有数据写入时需要唤醒的任务
     return;
 }
 
@@ -37,6 +38,11 @@ int fifo_put(FIFO *fifo, int data)
         fifo->w = 0;
     }
     fifo->free--;
+    if (fifo->task != 0) {
+        if (fifo->task->flags != TASK_RUNNING) { //如果该任务处于休眠状态
+            task_run(fifo->task);
+        }
+    }
     return 0;
 }
 

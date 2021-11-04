@@ -3,13 +3,6 @@
 TASKCTL *gTaskCtl;
 TIMER *gTaskTimer;
 
-enum {
-    TASK_NOTUSE,
-    TASK_ALLOC,
-    TASK_RUNNING,
-    TASK_MAX,
-};
-
 /*
     初始化任务管理列表，同时申请一个默认任务
 */
@@ -85,5 +78,45 @@ void task_switch(void)
         gTaskCtl->pCurTask = gTaskCtl->runningtasksHead.next;
         farjmp(0, gTaskCtl->pCurTask->sel);
     }
+    return;
+}
+
+/* 
+    任务休眠：当某个任务比较空闲，则可以休眠该任务，从而保证更多的资源分配给其他繁忙任务
+*/
+void task_sleep(TASK *task)
+{
+    TASK *pret, *t;
+    if (task->flags != TASK_RUNNING) {
+        return;     //该任务不处于活动状态则直接返回
+    }
+
+    // 在运行列表中寻找task的位置
+    pret = &gTaskCtl->runningtasksHead;
+    t = gTaskCtl->runningtasksHead.next;
+    while (t != NULL && t != task) {
+        pret = t;
+        t = t->next;
+    }
+
+    if (t == NULL) {    //未找到该任务
+        return;
+    }
+
+    // 将需要休眠的任务从运行列表中删除
+    pret->next = t->next;
+    t->next = NULL;
+    t->flags = TASK_ALLOC;  // 不工作状态
+
+    if (t == gTaskCtl->pCurTask) { //休眠的任务是当前的任务，则需要进行任务切换
+        if (pret->next != NULL) {
+            gTaskCtl->pCurTask = pret->next;
+        } else {
+            gTaskCtl->pCurTask = gTaskCtl->runningtasksHead.next;
+            gTaskCtl->pTask = pret; //最后一个任务被删除，链表尾指针前移
+        }
+        farjmp(0, gTaskCtl->pCurTask->sel);
+    }
+
     return;
 }
