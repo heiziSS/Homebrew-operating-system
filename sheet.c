@@ -223,7 +223,6 @@ void sheet_refresh(SHEET *sht, int bx0, int by0, int bx1, int by1)
 
 /*
     不改变图层高度，仅上下左右移动图层
-    ctl: 图层管理器
     sht: 需要移动的图层
     vx0: 图层移动后在图像上的新坐标
     vy0: 图层移动后在图像上的新坐标
