@@ -250,7 +250,8 @@ typedef struct {
 
 typedef struct task {
     int sel;        //存放GDT的编号
-    int flags;
+    int flags;      //任务当前的状态
+    int priority;   //任务优先级
     TSS32 tss;
     struct task *next;
 } TASK;
@@ -273,6 +274,6 @@ extern TIMER *gTaskTimer;
 
 TASK *task_init(MEMMAN *memman);
 TASK *task_alloc(void);
-void task_run(TASK *task);
+void task_run(TASK *task, int priority);
 void task_switch(void);
 void task_sleep(TASK *task);

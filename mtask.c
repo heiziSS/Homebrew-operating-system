@@ -19,12 +19,13 @@ TASK *task_init(MEMMAN *memman)
     }
     task = task_alloc();
     task->flags = TASK_RUNNING;
+    task->priority = 2; // 0.02秒
     load_tr(task->sel);
     gTaskCtl->runningtasksHead.next = task;
     gTaskCtl->pCurTask = task;
     gTaskCtl->pTask = task;
     gTaskTimer = timer_alloc();
-    timer_settime(gTaskTimer, 2);
+    timer_settime(gTaskTimer, task->priority);
     return task;
 }
 
@@ -59,25 +60,37 @@ TASK *task_alloc(void)
 }
 
 /* 激活已申请的任务 */
-void task_run(TASK *task)
+void task_run(TASK *task, int priority)
 {
-    task->flags = TASK_RUNNING;
-    gTaskCtl->pTask->next = task;
-    gTaskCtl->pTask = task;
+    if (priority > 0) {
+        task->priority = priority;
+    }
+    if (task->flags != TASK_RUNNING) {
+        task->flags = TASK_RUNNING;
+        gTaskCtl->pTask->next = task;
+        gTaskCtl->pTask = task;
+    }
     return;
 }
 
 /* 任务切换 */
 void task_switch(void)
 {
-    timer_settime(gTaskTimer, 2);
+    TASK *task = gTaskCtl->pCurTask;
     if (gTaskCtl->pCurTask->next != NULL) { //下一个任务不为空则切到下个任务
-        gTaskCtl->pCurTask = gTaskCtl->pCurTask->next;
-        farjmp(0, gTaskCtl->pCurTask->sel);
+        gTaskCtl->pCurTask = gTaskCtl->pCurTask->next;   
     } else if (gTaskCtl->pCurTask != gTaskCtl->runningtasksHead.next) {  // 下一个任务为空则切到第一个任务
         gTaskCtl->pCurTask = gTaskCtl->runningtasksHead.next;
+    }
+
+    // 时间设置必须放在farjmp前面，若定时器未设置完就切换线程会宕机
+    timer_settime(gTaskTimer, gTaskCtl->pCurTask->priority);
+
+    // 当只有一个任务时执行farjmp命令，CPU会拒绝执行，导致程序运行混乱
+    if (task != gTaskCtl->pCurTask) {
         farjmp(0, gTaskCtl->pCurTask->sel);
     }
+
     return;
 }
 
