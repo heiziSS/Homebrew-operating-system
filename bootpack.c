@@ -34,7 +34,7 @@ void HariMain(void)
     init_gdtidt();
     init_pic();
     io_sti(); //由于 IDT/PIC 初始化完成，因此取消了 CPU 中断禁令
-    fifo_init(&fifo, 128, fifobuf, 0);
+    fifo_init(&fifo, 128, fifobuf, NULL);
     init_pit();
     init_keyboard(&fifo, 256);
     enable_mouse(&fifo, 512, &mdec);
@@ -50,6 +50,7 @@ void HariMain(void)
     shtctl = shtctl_init(memman, binfo->vram ,binfo->scrnx, binfo->scrny);
     task_a = task_init(memman);
     fifo.task = task_a;
+    task_run(task_a, 1, 0);
 
     /* sht_back */
     sht_back = sheet_alloc(shtctl);
@@ -74,7 +75,7 @@ void HariMain(void)
         task_b[i]->tss.fs = 1 * 8;
         task_b[i]->tss.gs = 1 * 8;
         *((int *) (task_b[i]->tss.esp + 4)) = (int) sht_win_b[i];
-        task_run(task_b[i], i + 1);
+        task_run(task_b[i], 2, i + 1);
     }
 
     /* sht_win */
@@ -277,7 +278,7 @@ void task_b_main(SHEET *sht_win_b)
     int i, fifobuf[128], count = 0, count0 = 0;
     char s[12];
 
-    fifo_init(&fifo, 128, fifobuf, 0);
+    fifo_init(&fifo, 128, fifobuf, NULL);
     timer_1s = timer_alloc();
     timer_init(timer_1s, &fifo, 100);
     timer_settime(timer_1s, 100);

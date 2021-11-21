@@ -198,6 +198,8 @@ void sheet_free(SHEET *sht);
 #define MIN(a, b)   (((a) < (b)) ? (a) : (b))
 #define NULL        0
 #define UINT_MAX    0xffffffff
+#define TRUE        1
+#define FALSE       0
 
 /* timer.c */
 #define MAX_TIMER       500
@@ -226,7 +228,10 @@ void inthandler20(int *esp);
 
 /* mtask.c */
 #define MAX_TASKS       1000    // 最大任务数量
+#define MAX_TASKS_PER_LEVEL     100 //每个level中最多的任务数
+#define MAX_TASKLEVELS          10
 #define TASK_GDT0       3       // 定义从GDT的几号开始分配给TSS
+
 /*
     任务状态段（task status segment）
     TSS包含26个int成员，总计104字节
@@ -250,17 +255,24 @@ typedef struct {
 
 typedef struct task {
     int sel;        //存放GDT的编号
-    int flags;      //任务当前的状态
+    int status;     //任务当前的状态
     int priority;   //任务优先级
+    int level;      //所属level号
     TSS32 tss;
     struct task *next;
 } TASK;
 
 typedef struct {
-    TASK *pCurTask;         // 当前正在运行的任务
-    TASK runningtasksHead;  // 正在运行的任务链表的头部
+    TASK tasksHead;      // 正在运行的任务链表的头部
+    TASK *pTasksTail;    // 运行任务链表尾指针
+    int taskNum;
+} TASKLEVEL;
+
+typedef struct {
+    int curLevel;   //当前活动中的level
+    TASK *curTask;  //当前正在运行的任务
+    TASKLEVEL levels[MAX_TASKLEVELS];
     TASK tasks[MAX_TASKS];
-    TASK *pTask;            // 运行任务链表尾指针
 } TASKCTL;
 
 enum {
@@ -270,10 +282,10 @@ enum {
     TASK_MAX,
 };
 
-extern TIMER *gTaskTimer;
+extern TIMER *g_taskTimer;
 
 TASK *task_init(MEMMAN *memman);
 TASK *task_alloc(void);
-void task_run(TASK *task, int priority);
+void task_run(TASK *task, int level, int priority);
 void task_switch(void);
 void task_sleep(TASK *task);

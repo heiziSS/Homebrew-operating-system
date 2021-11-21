@@ -1,7 +1,75 @@
 #include "bootpack.h"
+#include <stdio.h>
+TASKCTL *g_taskCtl;
+TIMER *g_taskTimer;
 
-TASKCTL *gTaskCtl;
-TIMER *gTaskTimer;
+/* 获取下一个任务 */
+static TASK *get_next_task(TASK *t)
+{
+    if ((t == NULL) || (t->next == NULL)) {
+        return g_taskCtl->levels[g_taskCtl->curLevel].tasksHead.next; // 切到第一个任务
+    }
+    return t->next; 
+}
+
+/* task_level切换 */
+static void tasklevel_switch(void)
+{
+    int i;
+    // 寻找最上层的LEVEL
+    for (i = 0; i < MAX_TASKLEVELS; i++) {
+        if (g_taskCtl->levels[i].taskNum > 0) {
+            g_taskCtl->curLevel = i;
+            break;
+        }
+    }
+    return;
+}
+
+/* 向task_level中添加任务 */
+static void task_add(TASK *task)
+{
+    TASKLEVEL *tl = &g_taskCtl->levels[task->level];
+    if ((task->status != TASK_RUNNING) && (tl->taskNum < MAX_TASKS_PER_LEVEL)) {
+        task->status = TASK_RUNNING;
+        tl->pTasksTail->next = task;
+        tl->pTasksTail = task;
+        tl->taskNum++;
+        tasklevel_switch();
+    }
+    return;
+}
+
+/* 从task_level中删除任务 */
+static void task_remove(TASK *task)
+{
+    TASKLEVEL *tl = &g_taskCtl->levels[task->level];
+    TASK *pret = &tl->tasksHead;
+    TASK *t = pret->next;
+
+    // 寻找task的位置
+    while ((t != NULL) && (t != task)) {
+        pret = t;
+        t = t->next;
+    }
+    if (t == NULL) {
+        return;
+    }
+
+    //删除任务
+    pret->next = t->next;
+    t->next = NULL;
+    t->status = TASK_ALLOC;
+    tl->taskNum--;
+    tasklevel_switch();
+
+    //删除的是尾节点
+    if (tl->pTasksTail == t) {
+        tl->pTasksTail = pret;
+    }
+
+    return;
+}
 
 /*
     初始化任务管理列表，同时申请一个默认任务
@@ -11,21 +79,29 @@ TASK *task_init(MEMMAN *memman)
     int i;
     TASK *task;
     SEGMENT_DESCRIPTOR *gdt = (SEGMENT_DESCRIPTOR *) ADR_GDT;
-    gTaskCtl = (TASKCTL *)memman_alloc_4k(memman, sizeof(TASKCTL));
+    g_taskCtl = (TASKCTL *)memman_alloc_4k(memman, sizeof(TASKCTL));
+    // 初始化TASK列表
     for (i = 0; i < MAX_TASKS; i++) {
-        gTaskCtl->tasks[i].flags = TASK_NOTUSE;
-        gTaskCtl->tasks[i].sel = (TASK_GDT0 + i) * 8;
-        set_segmdesc(gdt + TASK_GDT0 + i, 103, (int) &gTaskCtl->tasks[i].tss, AR_TSS32);
+        g_taskCtl->tasks[i].status = TASK_NOTUSE;
+        g_taskCtl->tasks[i].sel = (TASK_GDT0 + i) * 8;
+        set_segmdesc(gdt + TASK_GDT0 + i, 103, (int) &g_taskCtl->tasks[i].tss, AR_TSS32);
+    }
+    // 初始化TASKLEVEL列表
+    for (i = 0; i < MAX_TASKLEVELS; i++) {
+        g_taskCtl->levels[i].taskNum = 0;
+        g_taskCtl->levels[i].pTasksTail = &g_taskCtl->levels[i].tasksHead;
+        g_taskCtl->levels[i].pTasksTail->next = NULL;
     }
     task = task_alloc();
-    task->flags = TASK_RUNNING;
     task->priority = 2; // 0.02秒
+    task->level = 0; //最高level
+    task_add(task);
+    tasklevel_switch();
     load_tr(task->sel);
-    gTaskCtl->runningtasksHead.next = task;
-    gTaskCtl->pCurTask = task;
-    gTaskCtl->pTask = task;
-    gTaskTimer = timer_alloc();
-    timer_settime(gTaskTimer, task->priority);
+    g_taskTimer = timer_alloc();
+    timer_settime(g_taskTimer, task->priority);
+    g_taskCtl->curTask = task;
+
     return task;
 }
 
@@ -35,9 +111,9 @@ TASK *task_alloc(void)
     int i;
     TASK *task;
     for (i = 0; i < MAX_TASKS; i++) {
-        if (gTaskCtl->tasks[i].flags == TASK_NOTUSE) {
-            task = &gTaskCtl->tasks[i];
-            task->flags = TASK_ALLOC;
+        if (g_taskCtl->tasks[i].status == TASK_NOTUSE) {
+            task = &g_taskCtl->tasks[i];
+            task->status = TASK_ALLOC;
             task->tss.eflags = 0x00000202;  // IF = 1
             task->tss.eax = 0;
             task->tss.ecx = 0;
@@ -59,36 +135,48 @@ TASK *task_alloc(void)
     return NULL;
 }
 
-/* 激活已申请的任务 */
-void task_run(TASK *task, int priority)
+/*
+    激活已申请的任务
+    task：需要激活的任务
+    level：设定的level，小于0则不改变
+    priority：设定的priority，0则使用默认值
+*/
+void task_run(TASK *task, int level, int priority)
 {
+    if (level < 0) {
+        level = task->level;
+    }
+
     if (priority > 0) {
         task->priority = priority;
     }
-    if (task->flags != TASK_RUNNING) {
-        task->flags = TASK_RUNNING;
-        gTaskCtl->pTask->next = task;
-        gTaskCtl->pTask = task;
+
+    if ((task->status == TASK_RUNNING) && (task->level != level)) {
+        task_remove(task);   // 改变任务的level，需先删除原level中注册的task
     }
+
+    if (task->status != TASK_RUNNING) {
+        task->level = level;
+        task_add(task); // 从休眠状态唤醒
+    }
+
     return;
 }
 
 /* 任务切换 */
 void task_switch(void)
 {
-    TASK *task = gTaskCtl->pCurTask;
-    if (gTaskCtl->pCurTask->next != NULL) { //下一个任务不为空则切到下个任务
-        gTaskCtl->pCurTask = gTaskCtl->pCurTask->next;   
-    } else if (gTaskCtl->pCurTask != gTaskCtl->runningtasksHead.next) {  // 下一个任务为空则切到第一个任务
-        gTaskCtl->pCurTask = gTaskCtl->runningtasksHead.next;
-    }
+    TASK *lastTask = g_taskCtl->curTask;
+
+    // 寻找下一个任务
+    g_taskCtl->curTask = get_next_task(lastTask);
 
     // 时间设置必须放在farjmp前面，若定时器未设置完就切换线程会宕机
-    timer_settime(gTaskTimer, gTaskCtl->pCurTask->priority);
+    timer_settime(g_taskTimer, g_taskCtl->curTask->priority);
 
     // 当只有一个任务时执行farjmp命令，CPU会拒绝执行，导致程序运行混乱
-    if (task != gTaskCtl->pCurTask) {
-        farjmp(0, gTaskCtl->pCurTask->sel);
+    if (lastTask != g_taskCtl->curTask) {
+        farjmp(0, g_taskCtl->curTask->sel);
     }
 
     return;
@@ -99,36 +187,16 @@ void task_switch(void)
 */
 void task_sleep(TASK *task)
 {
-    TASK *pret, *t;
-    if (task->flags != TASK_RUNNING) {
+    if (task->status != TASK_RUNNING) {
         return;     //该任务不处于活动状态则直接返回
     }
 
-    // 在运行列表中寻找task的位置
-    pret = &gTaskCtl->runningtasksHead;
-    t = gTaskCtl->runningtasksHead.next;
-    while (t != NULL && t != task) {
-        pret = t;
-        t = t->next;
-    }
+    // 删除任务
+    task_remove(task);
 
-    if (t == NULL) {    //未找到该任务
-        return;
-    }
-
-    // 将需要休眠的任务从运行列表中删除
-    pret->next = t->next;
-    t->next = NULL;
-    t->flags = TASK_ALLOC;  // 不工作状态
-
-    if (t == gTaskCtl->pCurTask) { //休眠的任务是当前的任务，则需要进行任务切换
-        if (pret->next != NULL) {
-            gTaskCtl->pCurTask = pret->next;
-        } else {
-            gTaskCtl->pCurTask = gTaskCtl->runningtasksHead.next;
-            gTaskCtl->pTask = pret; //最后一个任务被删除，链表尾指针前移
-        }
-        farjmp(0, gTaskCtl->pCurTask->sel);
+    if (task == g_taskCtl->curTask) { //休眠的任务是当前的任务，则需要进行任务切换
+        g_taskCtl->curTask = get_next_task(g_taskCtl->curTask);
+        farjmp(0, g_taskCtl->curTask->sel);
     }
 
     return;

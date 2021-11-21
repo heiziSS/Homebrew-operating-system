@@ -121,7 +121,7 @@ void inthandler20(int *esp)
         }
         // 处理超时定时器
         t->flags = TIMER_FLAGS_ALLOC;
-        if (t != gTaskTimer) {
+        if (t != g_taskTimer) {
             fifo_put(t->fifo, t->data);
         } else {
             ts = 1; // 本时间片到时，切换进程

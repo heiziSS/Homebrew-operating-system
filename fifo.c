@@ -38,10 +38,8 @@ int fifo_put(FIFO *fifo, int data)
         fifo->w = 0;
     }
     fifo->free--;
-    if (fifo->task != 0) {
-        if (fifo->task->flags != TASK_RUNNING) { //如果该任务处于休眠状态
-            task_run(fifo->task, 0);
-        }
+    if ((fifo->task != NULL) && (fifo->task->status != TASK_RUNNING)) { //如果该任务处于休眠状态
+        task_run(fifo->task, -1, 0);
     }
     return 0;
 }
