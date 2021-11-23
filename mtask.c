@@ -71,13 +71,21 @@ static void task_remove(TASK *task)
     return;
 }
 
+/* idle线程，用于操作系统中无线程运行时 */
+static void task_idle(void)
+{
+    for (;;) {
+        io_hlt();
+    }
+}
+
 /*
     初始化任务管理列表，同时申请一个默认任务
 */
 TASK *task_init(MEMMAN *memman)
 {
     int i;
-    TASK *task;
+    TASK *task, *idle;
     SEGMENT_DESCRIPTOR *gdt = (SEGMENT_DESCRIPTOR *) ADR_GDT;
     g_taskCtl = (TASKCTL *)memman_alloc_4k(memman, sizeof(TASKCTL));
     // 初始化TASK列表
@@ -96,11 +104,22 @@ TASK *task_init(MEMMAN *memman)
     task->priority = 2; // 0.02秒
     task->level = 0; //最高level
     task_add(task);
-    tasklevel_switch();
     load_tr(task->sel);
     g_taskTimer = timer_alloc();
     timer_settime(g_taskTimer, task->priority);
     g_taskCtl->curTask = task;
+
+    // 设置idle线程
+    idle = task_alloc();
+    idle->tss.esp = memman_alloc_4k(memman, 64 * 1024) + 64 * 1024;
+    idle->tss.eip = (int) &task_idle;
+    idle->tss.es = 1 * 8;
+    idle->tss.cs = 2 * 8;
+    idle->tss.ss = 1 * 8;
+    idle->tss.ds = 1 * 8;
+    idle->tss.fs = 1 * 8;
+    idle->tss.gs = 1 * 8;
+    task_run(idle, MAX_TASKLEVELS - 1, 1);
 
     return task;
 }
