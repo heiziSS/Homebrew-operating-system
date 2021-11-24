@@ -3,6 +3,11 @@
 TASKCTL *g_taskCtl;
 TIMER *g_taskTimer;
 
+TASK *task_now(void)
+{
+    return g_taskCtl->curTask;
+}
+
 /* 获取下一个任务 */
 static TASK *get_next_task(TASK *t)
 {

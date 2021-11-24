@@ -289,3 +289,4 @@ TASK *task_alloc(void);
 void task_run(TASK *task, int level, int priority);
 void task_switch(void);
 void task_sleep(TASK *task);
+TASK *task_now(void);
