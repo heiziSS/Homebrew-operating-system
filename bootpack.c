@@ -42,7 +42,7 @@ void HariMain(void)
 		  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
 		  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0
 	};
-    int key_to = 0, key_shift = 0;
+    int key_to = 0, key_shift = 0, key_leds = (binfo->leds >> 4) & 7;
     
     init_gdtidt();
     init_pic();
@@ -140,6 +140,11 @@ void HariMain(void)
                     }
                 } else {
                     s[0] = 0;
+                }
+                if ('A' <= s[0] && s[0] <= 'Z') { // 当输入字符为英文字符时
+                    if ((key_leds >> 2 == 0 && key_shift == 0) || (key_leds >> 2 == 1 && key_shift == 1)) {
+                        s[0] += 0x20;   // 大写字母转换为小写字母
+                    }
                 }
                 if (s[0] != 0) { // 一般字符
                     if (key_to == 0) { // 发送给任务A
