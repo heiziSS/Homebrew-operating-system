@@ -258,6 +258,7 @@ typedef struct task {
     int status;     //任务当前的状态
     int priority;   //任务优先级
     int level;      //所属level号
+    FIFO fifo;
     TSS32 tss;
     struct task *next;
 } TASK;
