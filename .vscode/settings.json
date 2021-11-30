@@ -1,7 +1,0 @@
-{
-    "files.associations": {
-        "*.nas": "plaintext",
-        "stdio.h": "c",
-        "bootpack.h": "c"
-    }
-}
