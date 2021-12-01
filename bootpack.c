@@ -180,6 +180,11 @@ void HariMain(void)
                         fifo_put(&task_cons->fifo, 8 + 256);
                     }
                 }
+                if (i == 256 + 0x1c) { // 回车键
+                    if (key_to != 0) {
+                        fifo_put(&task_cons->fifo, 10 + 256);
+                    }
+                }
                 if (i == 256 + 0x0f) { //tab键
                     if (key_to == 0) {
                         key_to = 1;
@@ -383,7 +388,7 @@ void console_task(SHEET *sheet)
 {
     TIMER *timer;
     TASK *task = task_now();
-    int i, fifobuf[128], cursor_x = 16, cursor_c = -1;
+    int i, fifobuf[128], cursor_x = 16, cursor_y = 28, cursor_c = -1;
     char s[2];
 
     fifo_init(&task->fifo, 128, fifobuf, task);
@@ -420,29 +425,38 @@ void console_task(SHEET *sheet)
                 cursor_c = COL8_FFFFFF;
             }
             if (i == 3) {
-                boxfill8(sheet->buf, sheet->bxsize, COL8_000000, cursor_x, 28, cursor_x + 7, 43);
+                boxfill8(sheet->buf, sheet->bxsize, COL8_000000, cursor_x, cursor_y, cursor_x + 7, cursor_y + 15);
                 cursor_c = -1;
             }
             if (256 <= i && i <= 511) { // 键盘数据（通过任务A）
                 if (i == 8 + 256) { // 退格键
                     if (cursor_x > 16) {
-                        putfonts8_asc_sht(sheet, cursor_x, 28, COL8_FFFFFF, COL8_000000, " ", 1);
+                        putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, " ", 1);
                         cursor_x -= 8;
+                    }
+                } else if (i == 10 + 256) { // 回车键
+                    if (cursor_y < 28 + 112) {
+                        //用空格将光标擦除
+                        putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, " ", 1);
+                        cursor_y += 16;
+                        // 显示提示符
+                        putfonts8_asc_sht(sheet, 8, cursor_y, COL8_FFFFFF, COL8_000000, ">", 1);
+                        cursor_x = 16;
                     }
                 } else { // 一般字符
                     if (cursor_x < 240) {
                         s[0] = i - 256;
                         s[1] = 0;
-                        putfonts8_asc_sht(sheet, cursor_x, 28, COL8_FFFFFF, COL8_000000, s, 1);
+                        putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, s, 1);
                         cursor_x += 8;
                     }
                 }
             }
             // 重新显示光标
             if (cursor_c >= 0) {
-                boxfill8(sheet->buf, sheet->bxsize, cursor_c, cursor_x, 28, cursor_x + 7, 43);
+                boxfill8(sheet->buf, sheet->bxsize, cursor_c, cursor_x, cursor_y, cursor_x + 7, cursor_y + 15);
             }
-            sheet_refresh(sheet, cursor_x, 28, cursor_x + 8, 44);
+            sheet_refresh(sheet, cursor_x, cursor_y, cursor_x + 8, cursor_y + 16);
         }
     }
 }
