@@ -3,6 +3,26 @@
 
 #define KEYCMD_LED  0xed
 
+// 文件信息在磁盘中保存的结构（32字节）
+// 0x002600-0x0041ff 最多存放224个文件信息
+typedef struct {
+    unsigned char name[8];      // 文件名，不足8个字节用空格补足，超过8个字节暂不考虑
+                                // 文件名第一个字节为0xe5，代表文件删除
+                                // 文件名第一个字节为0x00，代表这一段不包含任何文件名信息
+    unsigned char ext[3];       // 扩展名
+    unsigned char type;         // 文件属性，通常为0x20或0x00
+                                // 0x01：只读文件
+                                // 0x02：隐藏文件
+                                // 0x04：系统文件
+                                // 0x08：非文件信息（比如磁盘名称）
+                                // 0x10：目录
+    char reserve[10];           // 保留位
+    unsigned short time;        // 存放文件时间
+    unsigned short date;        // 存放文件日期
+    unsigned short clustno;     // 簇号
+    unsigned int size;          // 文件大小
+} FILEINFO;
+
 void make_wtitle8(unsigned char *buf, int xsize, char *title, char act);
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
 void putfonts8_asc_sht(SHEET *sht, int x, int y, int color, int backColor, char *str, int strLen);
@@ -368,6 +388,7 @@ void make_textbox8(SHEET *sht, int x0, int y0, int sx, int sy, int c)
 
 void console_task(SHEET *sheet, unsigned int memtotal)
 {
+    FILEINFO *finfo = (FILEINFO *) (ADR_DISKIMG + 0x002600);
     TIMER *timer;
     TASK *task = task_now();
     int i, fifobuf[128], cursor_x = 16, cursor_y = 28, cursor_c = -1;
@@ -442,6 +463,27 @@ void console_task(SHEET *sheet, unsigned int memtotal)
                         }
                         sheet_refresh(sheet, 8, 28, 8 + 240, 28 + 128);
                         cursor_y = 28;
+                    } else if (strcmp(cmdline, "dir") == 0) {
+                        // dir命令
+                        for (x = 0; x < 224; x++) {
+                            if (finfo[x].name[0] == 0x00) { // 后面没有再保存文件信息
+                                break;
+                            } else if (finfo[x].name[0] != 0xe5) {
+                                if (finfo[x].name[0] != 0xe5) {
+                                    if ((finfo[x].type & 0x18) == 0) {
+                                        sprintf(s, "filename.ext   %7d", finfo[x].size);
+                                        for (y = 0; y < 8; y++) {
+                                            s[y] = finfo[x].name[y];
+                                        }
+                                        s[9] = finfo[x].ext[0];
+                                        s[10] = finfo[x].ext[1];
+                                        s[11] = finfo[x].ext[2];
+                                        putfonts8_asc_sht(sheet, 8, cursor_y, COL8_FFFFFF, COL8_000000, s, 30);
+                                    }
+                                }
+                            }
+                            cursor_y = cons_newline(cursor_y, sheet);
+                        }
                     } else if (cmdline[0] != 0) {
                         // 未知命令
                         putfonts8_asc_sht(sheet, 8, cursor_y, COL8_FFFFFF, COL8_000000, "Bad command.", 12);
