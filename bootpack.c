@@ -396,11 +396,17 @@ void console_task(SHEET *sheet, unsigned int memtotal)
     char s[30], cmdline[30], *p;
     MEMMAN *memman = (MEMMAN *) MEMMAN_ADDR;
     int x, y;
+    int *fat = (int *)memman_alloc_4k(memman, 4 * 2880);
 
     fifo_init(&task->fifo, 128, fifobuf, task);
     timer = timer_alloc();
     timer_init(timer, &task->fifo, 1);
     timer_settime(timer, 50);
+
+    // 微软公司将FAT看作是最重要的磁盘信息，因此在磁盘中存放了2份FAT
+    // 第1份FAT位于0x000200~0x0013ff
+    // 第2份FAT位于0x001400~0x0025ff
+    file_readfat(fat, (unsigned char *)(ADR_DISKIMG + 0x000200));
 
     // 显示提示符
     putfonts8_asc_sht(sheet, 8, 28, COL8_FFFFFF, COL8_000000, ">", 1);
@@ -521,11 +527,11 @@ void console_task(SHEET *sheet, unsigned int memtotal)
                         }
                         // 文件找到，输出文件内容
                         if (x < 224 && finfo[x].name[0] != 0x00) {
-                            p = (char *) (finfo[x].clustno * 512 + 0x003e00 + ADR_DISKIMG);
-                            y = finfo[x].size;
+                            p = (char *)memman_alloc_4k(memman, finfo[x].size);
+                            file_loadfile(finfo[x].clustno, finfo[x].size, p, fat, (char *)(ADR_DISKIMG + 0x003e00));
                             cursor_x = 8;
-                            for (x = 0; x < y; x++) {
-                                s[0] = p[x]; s[1] = 0; //逐字输出
+                            for (y = 0; y < finfo[x].size; y++) {
+                                s[0] = p[y]; s[1] = 0; //逐字输出
                                 if (s[0] == 0x09) { // 制表符
                                     while(1) {
                                         putfonts8_asc_sht(sheet, cursor_x, cursor_y, COL8_FFFFFF, COL8_000000, " ", 1);
@@ -552,6 +558,7 @@ void console_task(SHEET *sheet, unsigned int memtotal)
                                     }
                                 }
                             }
+                            memman_free_4k(memman, (int)p, finfo[x].size);
                         } else { // 没有找到文件的情况
                             putfonts8_asc_sht(sheet, 8, cursor_y, COL8_FFFFFF, COL8_000000, "File not found.", 15);
                             cursor_y = cons_newline(cursor_y, sheet);
@@ -604,4 +611,36 @@ int cons_newline(int cursor_y, SHEET *sheet)
         sheet_refresh(sheet, 8, 28, 8 + 240, 28 + 128);
     }
     return cursor_y;
+}
+
+// 将磁盘映像中的FAT解压缩
+void file_readfat(int *fat, unsigned char *img)
+{
+    int i, j = 0;
+    for (i = 0; i < 2880; i += 2) { // 磁盘中一共有2880个扇区
+        fat[i] = (img[j] | (img[j + 1] << 8)) & 0xfff;
+        fat[i + 1] = ((img[j + 1] >> 4) | (img[j + 2] << 4)) & 0xfff;
+        j += 3;
+    }
+    return;
+}
+
+void file_loadfile(int clustno, int size, char *buf, int *fat, char *img)
+{
+    int i;
+    int read_size;
+    for (;;) {
+        read_size = MIN(size, 512);
+        for (i = 0; i < read_size; i++) {
+            buf[i] = img[clustno * 512 + i];
+        }
+        size -= read_size;
+        if (size > 0) {
+            buf += read_size;
+            clustno = fat[clustno];
+        } else {
+            break;
+        }
+    }
+    return;
 }
