@@ -292,3 +292,39 @@ void task_run(TASK *task, int level, int priority);
 void task_switch(void);
 void task_sleep(TASK *task);
 TASK *task_now(void);
+
+/* console.c */ 
+void console_task(SHEET *sheet, unsigned int memtotal);
+int cons_newline(int cursor_y, SHEET *sheet);
+
+/* file.c */
+
+// 文件信息在磁盘中保存的结构（32字节）
+// 0x002600-0x0041ff 最多存放224个文件信息
+typedef struct {
+    unsigned char name[8];      // 文件名，不足8个字节用空格补足，超过8个字节暂不考虑
+                                // 文件名第一个字节为0xe5，代表文件删除
+                                // 文件名第一个字节为0x00，代表这一段不包含任何文件名信息
+    unsigned char ext[3];       // 扩展名
+    unsigned char type;         // 文件属性，通常为0x20或0x00
+                                // 0x01：只读文件
+                                // 0x02：隐藏文件
+                                // 0x04：系统文件
+                                // 0x08：非文件信息（比如磁盘名称）
+                                // 0x10：目录
+    char reserve[10];           // 保留位
+    unsigned short time;        // 存放文件时间
+    unsigned short date;        // 存放文件日期
+    unsigned short clustno;     // 簇号
+                                // 磁盘映像中的地址 = clustno * 512(即1个扇区容量) + 0x003e00
+    unsigned int size;          // 文件大小
+} FILEINFO;
+
+void file_readfat(int *fat, unsigned char *img);
+void file_loadfile(int clustno, int size, char *buf, int *fat, char *img);
+
+/* window.c */
+void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
+void make_wtitle8(unsigned char *buf, int xsize, char *title, char act);
+void putfonts8_asc_sht(SHEET *sht, int x, int y, int color, int backColor, char *str, int strLen);
+void make_textbox8(SHEET *sht, int x0, int y0, int sx, int sy, int c);
