@@ -6,6 +6,8 @@
 !asmhead.nas
 !ipl10.nas
 !naskfunc.nas
+!hlt.nas
+hlt.hrb
 bootpack.nas
 bootpack.map
 bootpack.bim
