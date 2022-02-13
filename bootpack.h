@@ -320,8 +320,11 @@ typedef struct {
     unsigned int size;          // 文件大小
 } FILEINFO;
 
+#define FILE_MAX    224     // 文件最多为224个
+
 void file_readfat(int *fat, unsigned char *img);
-void file_loadfile(int clustno, int size, char *buf, int *fat, char *img);
+void file_loadfile(FILEINFO *finfo, unsigned char *fatimg, char *img, char *buf);
+FILEINFO *file_search(char *name);
 
 /* window.c */
 void make_window8(unsigned char *buf, int xsize, int ysize, char *title, char act);
