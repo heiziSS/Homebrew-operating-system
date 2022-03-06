@@ -67,7 +67,7 @@ FILEINFO *file_search(char *name)
 
     // 转换文件名为统一格式
     for (i = 0, j = 0; name[i] != 0; i++) {
-        if (j >= 11)    return 0; // 没有找到
+        if (j >= 11)    return NULL; // 没有找到
         if (name[i] == '.' && j <= 8) {
             j = 8;
         } else {

@@ -321,8 +321,14 @@ void cmd_hlt(CONSOLE *cons, char *cmd)
     }
 
     MEMMAN *memman = (MEMMAN *) MEMMAN_ADDR;
+    unsigned char *fat_img = (unsigned char *)(ADR_DISKIMG + 0x000200);
+    char *img = (char *)(ADR_DISKIMG + 0x003e00);
     SEGMENT_DESCRIPTOR *gdt = (SEGMENT_DESCRIPTOR *)ADR_GDT;
     char *filebuf = (char *)memman_alloc_4k(memman, finfo->size);
+
+    // 从镜像文件中读取文件内容
+    file_loadfile(finfo, fat_img, img, filebuf);
+
     set_segmdesc(gdt + 1003, finfo->size - 1, (int)filebuf, AR_CODE32_ER);
     farjmp(0, 1003 * 8);
     memman_free_4k(memman, (unsigned int)filebuf, finfo->size);
